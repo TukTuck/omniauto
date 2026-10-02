@@ -26,7 +26,8 @@ Regeln:
 
 | Pfad | Zweck |
 | --- | --- |
-| `docs/OMNIA-ATELIER.md` | Produkt-, UX- und Architekturkonzept (15 Teile) |
+| `docs/PROMPT-v2.md` | **Revidierte Aufgabenstellung** — widerspruchsfrei zum Repository-Befund; Teil A listet die 9 Korrekturen, Teil B ist der vollständige, direkt verwendbare Prompt |
+| `docs/OMNIA-ATELIER.md` | Produkt-, UX- und Architekturkonzept (15 Teile) — Antwort auf `PROMPT-v2.md` |
 | `docs/OMNIROUTE-PROBE.md` | *(folgt)* Protokoll des read-only Capability-Probe |
 | `docs/REUSE.md` | *(folgt)* Reuse-Protokoll: was woher übernommen wurde, mit Lizenz |
 | `prototype/index.html` | klickbarer Phase-3-Prototyp, simulierte Events |
