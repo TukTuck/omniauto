@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Schaltwerk — OmniRoute Proxy-Austausch</title>
+  <style>
+    /* Schaltwerk / BWO — „Bad Wolf in der Sternennacht".
+       Tiefes Nachtblau (van Gogh, gemeinfrei), Bernstein nur für Augen/Sterne,
+       Statusfarben weiterhin nur semantisch. Bad-Wolf-Motiv schematisch. */
+    :root {
+      --bg: #0d0e12;
+      --panel: #13141a;
+      --panel-2: #191a21;
+      --line: #262833;
+      --line-2: #33353f;
+      --ink: #d6d7dd;
+      --muted: #8a8c99;
+      --faint: #565963;
+      --eye: #d9a441;
+      --eye-dim: #8a6a34;
+      --good: #5f9e6f;
+      --bad: #c25b4e;
+      --warn: #b89543;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+      --sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 13px; }
+
+    /* ── Layout: Sidebar + Content ─────────────────────────────── */
+    body { display: flex; min-height: 100vh; }
+    .side {
+      width: 190px; flex: 0 0 190px; border-right: 1px solid var(--line);
+      display: flex; flex-direction: column; padding: 12px 0; gap: 1px;
+    }
+    .logo { padding: 2px 14px 14px; }
+    .logo b { display: block; font-size: 13px; font-weight: 650; letter-spacing: .02em; }
+    .logo span { display: block; font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+    .nav-label { font-family: var(--mono); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); padding: 12px 14px 3px; }
+    .side button {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+      background: none; border: 0; border-left: 2px solid transparent; color: var(--muted); font: inherit; text-align: left;
+      padding: 5px 12px 5px 12px; cursor: pointer;
+    }
+    .side button:hover:not(:disabled) { color: var(--ink); }
+    .side button.active { color: var(--ink); border-left-color: var(--ink); }
+    .side button:disabled { color: var(--faint); cursor: default; }
+    .side .tag {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--faint);
+    }
+    .side .tag.live { color: var(--good); }
+    .side-foot { margin-top: auto; padding: 8px 14px 0; font-family: var(--mono); font-size: 9.5px; color: var(--faint); line-height: 1.6; }
+
+    /* ── Bad Wolf (Markenanker + Hub-KI-Ablage) ────────────────── */
+    .side {
+      background-image:
+        radial-gradient(1.6px 1.6px at 24% 72px, #d9a44138 0 50%, transparent 60%),
+        radial-gradient(1px 1px at 68% 150px, #d6d7dd26 0 50%, transparent 60%),
+        radial-gradient(1.4px 1.4px at 82% 260px, #d9a44124 0 50%, transparent 60%),
+        radial-gradient(1px 1px at 40% 340px, #d6d7dd1f 0 50%, transparent 60%);
+    }
+    .portrait {
+      margin: 4px 4px 0; display: block; position: relative; cursor: pointer;
+      border: 1px solid transparent; border-radius: 3px;
+    }
+    .portrait:hover { border-color: var(--line-2); }
+    .portrait.dropzone { border-color: var(--eye); box-shadow: 0 0 18px #d9a44130 inset; }
+    .portrait svg, .portrait canvas { display: block; width: 100%; height: auto; }
+    .portrait .eye-core { filter: drop-shadow(0 0 4px #d9a441e6); }
+    .portrait .tear { filter: drop-shadow(0 0 2px #d9a44190); }
+    .portrait .badge {
+      position: absolute; top: 8px; right: 8px; min-width: 16px; height: 16px; padding: 0 4px;
+      border-radius: 8px; background: var(--eye); color: #14100a;
+      font-family: var(--mono); font-size: 9.5px; font-weight: 700; line-height: 16px; text-align: center;
+    }
+    .portrait .cap {
+      position: absolute; left: 10px; bottom: 8px; font-size: 10.5px; color: var(--muted);
+    }
+    .portrait .cap b { display: block; color: var(--ink); font-size: 12px; font-weight: 650; }
+    .voice {
+      margin: 2px 6px 0; padding: 7px 9px; border-top: 1px solid var(--line);
+      font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.5;
+      display: flex; gap: 7px; align-items: flex-start; min-height: 30px;
+    }
+    .voice .live-dot { margin-top: 3px; }
+    .bw-list { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.7; }
+    .bw-list .t { color: var(--faint); margin-right: 8px; }
+    .stencil {
+      padding: 2px 14px 10px; font-family: var(--mono); font-size: 9px; letter-spacing: .5em;
+      color: #56596380; text-transform: uppercase; white-space: nowrap; overflow: hidden;
+    }
+    .tray {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 340px; z-index: 100;
+      background: var(--panel); border-left: 1px solid var(--line-2);
+      display: flex; flex-direction: column; box-shadow: -12px 0 32px #00000066;
+    }
+    .tray[hidden] { display: none; }
+    .tray-head { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    .tray-head b { flex: 1; font-size: 12.5px; }
+    .tray-body { flex: 1; overflow: auto; padding: 8px; }
+    .tray-item { border: 1px solid var(--line); border-radius: 3px; padding: 7px 9px; margin-bottom: 7px; }
+    .ti-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+    .ti-time { font-family: var(--mono); font-size: 9.5px; color: var(--faint); flex: 1; }
+    .ti-x { background: none; border: 0; color: var(--faint); cursor: pointer; font-size: 13px; padding: 0 3px; }
+    .ti-x:hover { color: var(--bad); }
+    .ti-text { font-family: var(--mono); font-size: 11px; color: var(--ink); word-break: break-all; white-space: pre-wrap; line-height: 1.45; }
+    .tray-hint { padding: 9px 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--faint); line-height: 1.5; }
+    .tray.dropzone { border-left-color: var(--eye); box-shadow: -12px 0 32px #00000066, 0 0 24px #d9a44126 inset; }
+
+    .wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    header.top {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 10px 18px; border-bottom: 1px solid var(--line);
+    }
+    h1 { font-size: 13px; font-weight: 650; margin: 0; }
+    .top-sub { color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+
+    .conn { display: flex; gap: 8px; align-items: center; }
+    .conn .field { display: flex; flex-direction: column; gap: 2px; }
+    .conn label { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+    input {
+      background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+      padding: 5px 8px; font-family: var(--mono); font-size: 12px; border-radius: 3px;
+    }
+    input:focus { outline: none; border-color: var(--faint); }
+    input::placeholder { color: var(--faint); }
+
+    button.act {
+      font: inherit; font-weight: 550; border: 1px solid var(--line-2); background: transparent;
+      color: var(--ink); padding: 5px 11px; cursor: pointer; border-radius: 3px; white-space: nowrap;
+    }
+    button.act:hover:not(:disabled) { border-color: var(--muted); background: var(--panel-2); }
+    button.act.primary { background: var(--ink); border-color: var(--ink); color: #111213; font-weight: 650; }
+    button.act.primary:hover:not(:disabled) { background: #fff; }
+    button.act.small { padding: 3px 8px; font-size: 12px; }
+    button.act:disabled { opacity: .4; cursor: not-allowed; }
+
+    main { padding: 12px 18px 26px; max-width: 1460px; width: 100%; }
+    section[hidden] { display: none; }
+
+    /* ── Statuszeile (statt KPI-Kärtchen) ──────────────────────── */
+    .strip {
+      display: flex; gap: 0; flex-wrap: wrap; margin-bottom: 12px;
+      border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+      padding: 7px 0;
+    }
+    .strip .item {
+      display: flex; gap: 7px; align-items: baseline; padding: 0 16px;
+      border-left: 1px solid var(--line);
+    }
+    .strip .item:first-child { border-left: 0; padding-left: 2px; }
+    .strip span { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+    .strip b { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+    .strip b.good { color: var(--good); } .strip b.bad { color: var(--bad); }
+
+    /* ── Toolbar / Zeilen ──────────────────────────────────────── */
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .chip-group {
+      display: flex; gap: 0; align-items: center;
+    }
+    .chip-group .cap { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); padding-right: 10px; }
+    .chip { display: flex; gap: 5px; align-items: center; padding: 3px 8px; cursor: pointer; font-size: 12px; color: var(--muted); }
+    .chip:hover { color: var(--ink); }
+    .chip input { width: auto; accent-color: var(--ink); margin: 0; }
+    .chip:has(input:checked) { color: var(--ink); }
+
+    details.pop { position: relative; }
+    details.pop > summary {
+      list-style: none; cursor: pointer; border: 1px solid var(--line-2);
+      padding: 5px 11px; border-radius: 3px; color: var(--ink); font-weight: 550; font-size: 13px;
+    }
+    details.pop > summary::-webkit-details-marker { display: none; }
+    details.pop[open] > summary { border-color: var(--muted); }
+    details.pop .menu {
+      position: absolute; z-index: 20; top: calc(100% + 5px); left: 0; min-width: 260px;
+      background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 3px; padding: 6px;
+      max-height: 320px; overflow: auto; box-shadow: 0 6px 20px #00000077;
+    }
+    details.pop .menu label { display: flex; gap: 8px; align-items: center; padding: 3px 6px; cursor: pointer; font-size: 12px; }
+    details.pop .menu label:hover { color: var(--ink); }
+    details.pop .menu input { width: auto; accent-color: var(--ink); margin: 0; }
+    details.pop .menu .all { color: var(--ink); font-size: 11px; cursor: pointer; padding: 2px 6px; display: inline-block; text-decoration: underline; }
+    details.pop .menu input[type=number] { width: 72px; margin-left: auto; }
+
+    .hint { color: var(--muted); font-size: 12px; }
+    .phase { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; min-width: 0; }
+    .phase .spinner { width: 9px; height: 9px; border: 1.5px solid var(--line-2); border-top-color: var(--ink); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
+    .phase.busy .spinner { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Panels / Tabellen ─────────────────────────────────────── */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .panel { background: transparent; border: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+    .panel h2 {
+      margin: 0; padding: 7px 10px; font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--ink);
+    }
+    .panel h2 em { font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--faint); font-weight: 400; }
+    .scroll { overflow: auto; max-height: 380px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      text-align: left; color: var(--faint); font-weight: 550; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+      padding: 5px 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 1;
+    }
+    td { padding: 4px 10px; border-bottom: 1px solid #1d1f21; vertical-align: top; font-family: var(--mono); font-size: 11.5px; white-space: nowrap; }
+    td.wrap { white-space: normal; word-break: break-all; }
+    tr:hover td { background: #191b1d; }
+    .empty { color: var(--faint); font-family: var(--sans); font-size: 12px; padding: 16px 10px; text-align: center; }
+    input[type=checkbox].rowchk { width: auto; accent-color: var(--ink); margin: 0; }
+
+    .pill {
+      display: inline-block; padding: 0 5px; border-radius: 2px; font-size: 9.5px; font-weight: 600;
+      letter-spacing: .05em; text-transform: uppercase; font-family: var(--sans);
+      color: var(--muted); border: 1px solid var(--line-2);
+    }
+    .pill.live { color: var(--good); border-color: #3a5a44; }
+    .pill.dead { color: var(--bad); border-color: #5e3a34; }
+    .pill.http { color: var(--warn); border-color: #5a4c2e; }
+    .pill.one { color: var(--muted); border-color: var(--line-2); }
+    .pill.man { color: var(--ink); border-color: var(--line-2); }
+    .pill.ok { color: var(--good); border-color: #3a5a44; }
+    .pill.err { color: var(--bad); border-color: #5e3a34; }
+
+    /* ── Log ───────────────────────────────────────────────────── */
+    .log {
+      font-family: var(--mono); font-size: 11.5px; background: var(--bg); border: 1px solid var(--line);
+      padding: 8px 10px; height: 140px; overflow: auto; white-space: pre-wrap;
+      color: #a5a8ad; margin-top: 12px; line-height: 1.55;
+    }
+    .log .t { color: var(--faint); }
+    .log .err { color: var(--bad); }
+
+    /* ── Traffic / Zeitplan ────────────────────────────────────── */
+    .card { border-top: 1px solid var(--line); padding: 10px 2px 14px; margin-bottom: 4px; }
+    .card h3 { margin: 0 0 6px; font-size: 12px; font-weight: 650; }
+    .card .sub { color: var(--muted); font-size: 12px; margin: 0 0 10px; line-height: 1.5; }
+    .form-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+    .form-row .field { display: flex; flex-direction: column; gap: 3px; }
+    .form-row label { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+    .switch { position: relative; width: 30px; height: 17px; flex: 0 0 30px; }
+    .switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+    .switch i { position: absolute; inset: 0; background: var(--line-2); border-radius: 9px; transition: background .15s; pointer-events: none; }
+    .switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #9a9da2; transition: transform .15s; }
+    .switch input:checked + i { background: var(--good); }
+    .switch input:checked + i::after { transform: translateX(13px); background: #10120f; }
+
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--faint); margin-right: 6px; }
+    .live-dot.on { background: var(--good); }
+    .live-dot.off { background: var(--bad); }
+    .live-dot.busy { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: .35; } }
+
+    /* Drag & Drop: Kandidaten → Bestand */
+    #har-body tr[draggable] td:first-child { cursor: grab; }
+    #har-body tr[draggable]:active td { cursor: grabbing; }
+    #inv-panel.dropzone { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+    #inv-panel.dropzone .drop-hint { display: block; color: var(--ink); border-color: var(--ink); }
+    .drop-hint {
+      display: none; margin: 8px; padding: 9px; text-align: center; font-size: 12px; font-weight: 600;
+      border: 1px dashed var(--line-2); border-radius: 3px; color: var(--faint);
+    }
+    .drop-hint.static { display: block; border: 0; padding: 5px 12px 8px; font-weight: 400; color: var(--faint); }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 860px) {
+      body { flex-direction: column; }
+      .side { width: 100%; flex: none; flex-direction: row; align-items: center; overflow-x: auto; padding: 6px 10px; }
+      .logo { padding: 0 10px 0 0; } .logo span { display: none; }
+      .nav-label, .side-foot { display: none; }
+      .side button { width: auto; white-space: nowrap; border-left: 0; }
+      header.top { flex-direction: column; align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="side">
+    <div class="logo">
+      <b>Schaltwerk</b>
+      <span>OmniRoute Proxy-Austausch</span>
+    </div>
+    <div class="nav-label">Hub</div>
+    <button class="active" data-tab="hub">Übersicht</button>
+    <button data-tab="providers">Provider</button>
+    <button disabled>Einstellungen <span class="tag">bald</span></button>
+    <div class="nav-label">Schaltwerk</div>
+    <button data-tab="exchange">Austausch</button>
+    <button data-tab="traffic">Traffic <span class="tag" id="traffic-tag">live</span></button>
+    <button data-tab="schedule">Zeitplan</button>
+    <div class="portrait" id="wolf" title="Bad Wolf — etwas hierher ziehen oder klicken">
+      <canvas id="bw-canvas" width="380" height="520" role="img" aria-label="Bad Wolf"></canvas>
+      <span class="badge" id="wolf-badge" hidden>0</span>
+      <span class="cap"><b>Bad Wolf</b>Ablage der Hub-KI</span>
+    </div>
+    <div class="voice" id="bw-voice" title="Bad Wolfs letzte Tat — Klick fuer die Ablage">
+      <span class="live-dot" id="bw-dot"></span>
+      <span id="bw-voice-text">Ich beobachte.</span>
+    </div>
+    <div class="stencil">B A D&#8195;W O L F</div>
+    <div class="side-foot">schreibt ausschließlich manuelle Proxies nach OmniRoute</div>
+  </aside>
+
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <h1 id="tab-title">Übersicht</h1>
+        <div class="top-sub" id="tab-sub">Live-Status deines OmniRoute-Systems</div>
+      </div>
+      <form class="conn" id="conn-form">
+        <span class="live-dot off" id="conn-dot" title="Nicht verbunden"></span>
+        <div class="field">
+          <label for="omni_url">OmniRoute URL</label>
+          <input id="omni_url" value="http://127.0.0.1:24615" size="24" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="api_key">Management-API-Key</label>
+          <input id="api_key" type="password" placeholder="sk-…" size="20" autocomplete="off" />
+        </div>
+        <button class="act" type="submit" id="btn-connect">Verbinden</button>
+      </form>
+    </header>
+
+    <main>
+      <!-- ══ Tab: Hub-Übersicht ══ -->
+      <section id="tab-hub">
+        <div class="strip">
+          <div class="item"><span>OmniRoute</span><b id="h-link">—</b></div>
+          <div class="item"><span>Provider</span><b id="h-prov">—</b></div>
+          <div class="item"><span>Pool</span><b id="h-pool">—</b></div>
+          <div class="item"><span>Requests</span><b id="h-req">—</b></div>
+          <div class="item"><span>Fehler</span><b id="h-err">—</b></div>
+          <div class="item"><span>Job</span><b id="h-job">—</b></div>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Live-Aktivität</h3>
+            <div class="sub" id="h-traffic">—</div>
+            <div class="row" style="margin:0">
+              <button class="act small" data-goto="traffic">Traffic ansehen</button>
+              <button class="act small" data-goto="exchange">Austausch starten</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>System</h3>
+            <div class="sub" id="h-system">—</div>
+            <div class="row" style="margin:0">
+              <button class="act small" data-goto="providers">Provider verwalten</button>
+              <button class="act small" data-goto="schedule">Zeitplan</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Bad Wolf</h3>
+          <div class="sub" id="h-bwolf-sub">—</div>
+          <div class="bw-list" id="h-bwolf">—</div>
+        </div>
+      </section>
+
+      <!-- ══ Tab: Provider ══ -->
+      <section id="tab-providers" hidden>
+        <div class="card">
+          <h3>Provider-Connections</h3>
+          <div class="sub">
+            Verbindungen, die OmniRoute aktuell kennt. Über den Schalter lässt sich
+            eine Verbindung aktivieren oder deaktivieren — deaktivierte Provider
+            nehmen nicht am Routing teil.
+          </div>
+          <span class="hint" id="prov-hint"></span>
+        </div>
+        <div class="panel">
+          <h2>Installierte Verbindungen <em id="prov-meta">—</em></h2>
+          <div class="scroll" style="max-height:460px">
+            <table>
+              <thead><tr><th>Provider</th><th>Connection-ID</th><th>Status</th><th>Aktiv</th></tr></thead>
+              <tbody id="prov-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ Tab: Austausch ══ -->
+      <section id="tab-exchange" hidden>
+        <div class="strip">
+          <div class="item"><span>Verbindung</span><b id="kpi-link">—</b></div>
+          <div class="item"><span>Pool</span><b id="kpi-harvest">0</b></div>
+          <div class="item"><span>1proxy</span><b id="kpi-one">0</b></div>
+          <div class="item"><span>HTTPS ok</span><b id="kpi-live">0</b></div>
+          <div class="item"><span>Tot</span><b id="kpi-dead">0</b></div>
+          <div class="item"><span>Ausgewählt</span><b id="kpi-sel">0</b></div>
+        </div>
+
+        <div class="row">
+          <div class="chip-group">
+            <span class="cap">Typ</span>
+            <label class="chip"><input type="checkbox" id="t-http" checked /> HTTP</label>
+            <label class="chip"><input type="checkbox" id="t-https" checked /> HTTPS</label>
+            <label class="chip"><input type="checkbox" id="t-socks5" /> SOCKS5</label>
+          </div>
+          <details class="pop" id="src-pop">
+            <summary>Quellen <span class="hint" id="src-count"></span></summary>
+            <div class="menu">
+              <div><span class="all" id="src-all">alle an</span> · <span class="all" id="src-none">alle aus</span></div>
+              <div id="src-list"></div>
+            </div>
+          </details>
+          <span class="phase" id="phase"><span class="spinner"></span><span id="phase-text">Bereit. Zuerst mit OmniRoute verbinden.</span></span>
+        </div>
+
+        <div class="row">
+          <button class="act" id="btn-inv">Bestand laden</button>
+          <button class="act" id="btn-harvest">Listen holen</button>
+          <button class="act" id="btn-check">Kandidaten prüfen</button>
+          <button class="act primary" id="btn-ex">Austausch starten</button>
+          <details class="pop" id="ex-params">
+            <summary>Parameter</summary>
+            <div class="menu">
+              <label>Timeout je Proxy (s) <input id="p-timeout" type="number" value="7" min="2" max="30" /></label>
+              <label>Gleichzeitig <input id="p-conc" type="number" value="16" min="1" max="40" /></label>
+              <label>Listen-Limit <input id="p-harvest" type="number" value="140" min="20" max="400" /></label>
+              <label>Max. schreiben <input id="p-push" type="number" value="25" min="1" max="80" /></label>
+            </div>
+          </details>
+          <button class="act" id="btn-push" disabled>Ausgewählte übernehmen</button>
+          <button class="act" id="btn-assign">Provider zuordnen</button>
+        </div>
+
+        <div class="grid">
+          <section class="panel" id="inv-panel" title="Kandidaten hierher ziehen, um sie zu übernehmen">
+            <h2>OmniRoute-Bestand <em id="inv-meta">noch nicht geladen</em></h2>
+            <div class="scroll">
+              <table>
+                <thead><tr><th>Host</th><th>Typ</th><th>Klasse</th><th>Status</th></tr></thead>
+                <tbody id="inv-body"></tbody>
+              </table>
+            </div>
+            <div class="drop-hint" id="drop-hint">Loslassen zum Übernehmen</div>
+          </section>
+          <section class="panel">
+            <h2>
+              Kandidaten
+              <label class="chip" style="padding:2px 6px"><input type="checkbox" class="rowchk" id="chk-all" /> alle</label>
+              <em id="har-meta">noch nichts geholt</em>
+            </h2>
+            <div class="scroll">
+              <table>
+                <thead><tr><th></th><th>Host</th><th>Typ</th><th>Quelle</th><th>Check</th><th>ms / Exit-IP</th></tr></thead>
+                <tbody id="har-body"></tbody>
+              </table>
+            </div>
+            <div class="drop-hint static">Tipp: Zeilen in den Bestand links ziehen, um sie zu übernehmen</div>
+          </section>
+        </div>
+
+        <div class="log" id="log"></div>
+      </section>
+
+      <!-- ══ Tab: Traffic ══ -->
+      <section id="tab-traffic" hidden>
+        <div class="card">
+          <h3>Live-Traffic über Proxies</h3>
+          <div class="sub">
+            Liest alle 5 Sekunden die letzten Requests, die OmniRoute über Proxies geschickt hat
+            (<code>/api/usage/proxy-logs</code>). Zeigt, ob und wo gerade etwas läuft.
+          </div>
+          <div class="row" style="margin-bottom:0">
+            <span class="phase" id="traffic-phase"><span class="spinner"></span><span id="traffic-phase-text">Gestoppt.</span></span>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>
+            Letzte Proxy-Requests
+            <em id="traffic-meta">—</em>
+          </h2>
+          <div class="row" style="padding:8px 10px; margin:0; border-bottom:1px solid var(--line)">
+            <input id="traffic-filter" placeholder="Filter: Host / Provider …" size="24" />
+            <label class="chip"><input type="checkbox" id="traffic-onlyproxy" /> nur echter Proxy-Traffic</label>
+          </div>
+          <div class="scroll" style="max-height:400px">
+            <table>
+              <thead><tr><th>Zeit</th><th>Proxy</th><th>Provider</th><th>Status</th><th>Latenz</th><th>Fehler</th></tr></thead>
+              <tbody id="traffic-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ Tab: Zeitplan ══ -->
+      <section id="tab-schedule" hidden>
+        <div class="card">
+          <h3>Geplanter Austausch</h3>
+          <div class="sub">
+            Startet regelmäßig denselben Ablauf wie „Austausch starten": Bestand prüfen, Tote entfernen,
+            Neue holen, schreiben. Läuft nur, solange dieser Server läuft und mit OmniRoute verbunden ist.
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="sched-enabled">Aktiv</label>
+              <span class="switch"><input type="checkbox" id="sched-enabled" /><i></i></span>
+            </div>
+            <div class="field">
+              <label for="sched-interval">Intervall (Minuten)</label>
+              <input id="sched-interval" type="number" min="5" max="1440" value="60" size="6" />
+            </div>
+            <button class="act" id="btn-sched">Speichern</button>
+            <span class="hint" id="sched-hint"></span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Status</h3>
+          <div class="sub" id="sched-status">Noch nicht abgefragt.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <aside class="tray" id="tray" hidden>
+    <div class="tray-head">
+      <b>Bad Wolf · Ablage</b>
+      <button class="act small" id="tray-clear">Leeren</button>
+      <button class="act small" id="tray-close">✕</button>
+    </div>
+    <div class="tray-body" id="tray-body"></div>
+    <div class="tray-hint">
+      Zieh Proxies, Text, Links oder Dateien hierher — oder direkt auf Bad Wolf links.
+      Die Ablage lebt im RAM und ist nach einem Neustart weg.
+    </div>
+  </aside>
+
+  <script>
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      candidates: [],
+      selected: new Set(),
+      inventory: null,
+      connected: false,
+      jobTimer: null,
+      trafficTimer: null,
+      hubTimer: null,
+      trafficItems: [],
+      dragging: null,
+      tab: "hub",
+    };
+
+    /* ── Utilities ──────────────────────────────────────────── */
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function nowTime() { return new Date().toLocaleTimeString("de-DE", { hour12: false }); }
+    function log(line, isErr = false) {
+      const el = $("log");
+      const cls = isErr ? ' class="err"' : "";
+      el.insertAdjacentHTML("beforeend", `<div${cls}><span class="t">[${nowTime()}]</span> ${esc(line)}</div>`);
+      el.scrollTop = el.scrollHeight;
+    }
+    async function api(path, opts = {}) {
+      let r;
+      try {
+        r = await fetch(path, opts);
+      } catch (e) {
+        throw new Error("Server nicht erreichbar — läuft server.py noch?");
+      }
+      let data = null;
+      try { data = await r.json(); } catch { /* leere Antwort */ }
+      if (!r.ok) {
+        const msg = data?.detail || data?.error?.message || data?.error || r.statusText || "HTTP " + r.status;
+        throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+      }
+      return data;
+    }
+    function post(path, body) {
+      return api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    }
+    function busy(btn, on, label) {
+      if (on) {
+        if (!btn.disabled) btn.dataset.label = btn.textContent; // Original-Label nur einmal merken
+        btn.disabled = true; btn.textContent = label || "…";
+      } else {
+        btn.disabled = false; btn.textContent = btn.dataset.label || btn.textContent;
+      }
+    }
+    function setPhase(text, isBusy = false) {
+      $("phase-text").textContent = text;
+      $("phase").classList.toggle("busy", isBusy);
+    }
+    function setConn(ok) {
+      state.connected = ok;
+      $("conn-dot").className = "live-dot " + (ok ? "on" : "off");
+      $("kpi-link").textContent = ok ? "ok" : "—";
+    }
+    function selectedTypes() {
+      const t = [];
+      if ($("t-http").checked) t.push("http");
+      if ($("t-https").checked) t.push("https");
+      if ($("t-socks5").checked) t.push("socks5");
+      return t;
+    }
+    function checkedSources() {
+      return [...document.querySelectorAll("#src-list input:checked")].map((c) => c.value);
+    }
+
+    /* ── Tabs ───────────────────────────────────────────────── */
+    const TABS = {
+      hub: ["Übersicht", "Live-Status deines OmniRoute-Systems"],
+      providers: ["Provider", "Verbindungen aktivieren und deaktivieren"],
+      exchange: ["Austausch", "Freie Proxies prüfen und den OmniRoute-Bestand aktuell halten"],
+      traffic: ["Traffic", "Was OmniRoute gerade über die Proxies schickt"],
+      schedule: ["Zeitplan", "Austausch automatisch nach Zeitplan ausführen"],
+    };
+    document.querySelectorAll(".side button[data-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    });
+    document.querySelectorAll("[data-goto]").forEach((btn) => {
+      btn.addEventListener("click", () => switchTab(btn.dataset.goto));
+    });
+    function switchTab(tab) {
+      state.tab = tab;
+      for (const [id, [title, sub]] of Object.entries(TABS)) {
+        $(`tab-${id}`).hidden = id !== tab;
+      }
+      document.querySelectorAll(".side button[data-tab]").forEach((b) =>
+        b.classList.toggle("active", b.dataset.tab === tab));
+      $("tab-title").textContent = TABS[tab][0];
+      $("tab-sub").textContent = TABS[tab][1];
+      if (tab === "traffic") startTraffic(); else stopTraffic();
+      if (tab === "hub") startHub(); else stopHub();
+      if (tab === "providers") loadProviders();
+      if (tab === "schedule") refreshSchedule();
+    }
+
+    /* ── Hub-Übersicht ──────────────────────────────────────── */
+    function startHub() {
+      stopHub();
+      renderHub();
+      pollHub();
+      state.hubTimer = setInterval(pollHub, 5000);
+    }
+    function stopHub() {
+      clearInterval(state.hubTimer);
+      state.hubTimer = null;
+    }
+    async function pollHub() {
+      let d;
+      try { d = await api("/api/hub-summary"); } catch (e) { $("h-link").textContent = "—"; return; }
+      renderHub(d);
+    }
+    function fmtTime(iso) {
+      return iso ? new Date(iso).toLocaleTimeString("de-DE", { hour12: false }) : "—";
+    }
+    function renderHub(d) {
+      if (!d) return;
+      $("h-link").textContent = d.has_key ? "ok" : "—";
+      $("h-link").className = d.has_key ? "good" : "";
+      const prov = d.providers;
+      $("h-prov").textContent = prov && !prov.error ? `${prov.active}/${prov.total}` : "—";
+      const pool = d.pool;
+      $("h-pool").textContent = pool && !pool.error ? pool.harvest : "—";
+      const ph = d.proxy_health;
+      $("h-req").textContent = ph && !ph.error ? ph.requests : "—";
+      $("h-err").textContent = ph && !ph.error ? ph.errors : "—";
+      $("h-err").className = ph && !ph.error && ph.errors > 0 ? "bad" : "";
+      $("h-job").textContent = d.job?.running ? "läuft" : "idle";
+      $("h-job").className = d.job?.running ? "good" : "";
+
+      const tr = d.traffic;
+      $("h-traffic").innerHTML = tr && !tr.error
+        ? `${tr.recent} Requests in den letzten Protokolleinträgen · <b>${tr.via_proxy}</b> über einen Proxy ·` +
+          ` zuletzt ${esc(fmtTime(tr.last))}${tr.via_proxy === 0 ? " — noch kein Proxy-Request gesehen." : "."}`
+        : "Nicht lesbar.";
+      $("h-system").innerHTML =
+        `OmniRoute: <b>${esc(d.omni_url)}</b> · API-Key: ${d.has_key ? "gesetzt" : "fehlt"} ·` +
+        ` letzter Austausch: ${d.job?.finished_at ? esc(fmtTime(d.job.finished_at)) : "—"}` +
+        (d.job?.error ? ` · <span style="color:var(--bad)">letzter Fehler: ${esc(d.job.error)}</span>` : "") +
+        (pool && !pool.error ? ` · Bestand: ${pool.harvest} Austausch / ${pool.manual} eigene` : "");
+    }
+
+    /* ── Provider ───────────────────────────────────────────── */
+    async function loadProviders() {
+      $("prov-body").innerHTML = '<tr><td colspan="4" class="empty">Lade …</td></tr>';
+      try {
+        const data = await api("/api/omni/providers");
+        const conns = data.connections || [];
+        $("prov-meta").textContent = `${conns.length} Verbindungen`;
+        if (!conns.length) {
+          $("prov-body").innerHTML = '<tr><td colspan="4" class="empty">Keine Provider verbunden.</td></tr>';
+          return;
+        }
+        $("prov-body").innerHTML = conns.map((c) => {
+          const on = Boolean(c.isActive);
+          return `<tr>
+            <td class="wrap">${esc(c.provider || c.id)}</td>
+            <td>${esc(String(c.id || "").slice(0, 8))}…</td>
+            <td><span class="pill ${on ? "ok" : "err"}">${on ? "aktiv" : "inaktiv"}</span></td>
+            <td><span class="switch"><input type="checkbox" class="prov-toggle" data-id="${esc(c.id)}" ${on ? "checked" : ""} /><i></i></span></td>
+          </tr>`;
+        }).join("");
+      } catch (e) {
+        $("prov-meta").textContent = "—";
+        $("prov-body").innerHTML = `<tr><td colspan="4" class="empty">${esc(e.message)}</td></tr>`;
+      }
+    }
+    $("prov-body").addEventListener("change", async (ev) => {
+      const cb = ev.target.closest("input.prov-toggle");
+      if (!cb) return;
+      const id = cb.dataset.id;
+      const on = cb.checked;
+      if (!confirm(`Provider-Connection ${id.slice(0, 8)}… ${on ? "aktivieren" : "deaktivieren"}?`)) {
+        cb.checked = !on;
+        return;
+      }
+      cb.disabled = true;
+      try {
+        await post("/api/omni/provider-status", { ids: [id], is_active: on });
+        $("prov-hint").textContent = "";
+        log(`Provider-Connection ${id.slice(0, 8)}… ${on ? "aktiviert" : "deaktiviert"}.`);
+      } catch (e) {
+        cb.checked = !on;
+        $("prov-hint").textContent = "Fehler: " + e.message;
+        log("Provider-Toggle fehlgeschlagen: " + e.message, true);
+      } finally {
+        cb.disabled = false;
+      }
+    });
+
+    /* ── Verbindung ─────────────────────────────────────────── */
+    async function connect(ev) {
+      ev?.preventDefault();
+      const btn = $("btn-connect");
+      busy(btn, true, "Verbinde …");
+      setPhase("Verbinde mit OmniRoute …", true);
+      try {
+        const data = await post("/api/connect", { omni_url: $("omni_url").value, api_key: $("api_key").value });
+        setConn(data.ok);
+        log(data.detail || "Verbunden.");
+        if (data.ok) {
+          setPhase("Verbunden.");
+          loadInv().catch(() => {});
+          refreshSchedule().catch(() => {});
+        } else {
+          setPhase("Nicht verbunden — Harvest funktioniert trotzdem.");
+        }
+      } catch (e) {
+        setConn(false);
+        log("Verbindung fehlgeschlagen: " + e.message, true);
+        setPhase("Verbindung fehlgeschlagen.");
+      } finally { busy(btn, false); }
+    }
+
+    /* ── Bestand ────────────────────────────────────────────── */
+    function renderInv() {
+      const inv = state.inventory;
+      if (!inv) { $("inv-body").innerHTML = ""; return; }
+      const all = [
+        ...inv.harvest.map((p) => ({ ...p, klass: "Austausch" })),
+        ...inv.manual.map((p) => ({ ...p, klass: "Manuell" })),
+        ...inv.oneproxy.map((p) => ({ ...p, klass: "1proxy" })),
+      ];
+      $("inv-meta").textContent = `${all.length} Einträge`;
+      $("kpi-harvest").textContent = inv.counts.harvest;
+      $("kpi-one").textContent = inv.counts.oneproxy;
+      $("inv-body").innerHTML = all.length
+        ? all.map((p) => {
+            const klass = p.klass === "1proxy" ? '<span class="pill one">1proxy</span>'
+              : p.klass === "Austausch" ? '<span class="pill man">Austausch</span>'
+              : '<span class="pill">manuell</span>';
+            const st = String(p.status || "—").toLowerCase() === "active" ? '<span class="pill ok">active</span>'
+              : `<span class="pill ${String(p.status).toLowerCase() === "dead" ? "err" : ""}">${esc(p.status || "—")}</span>`;
+            return `<tr><td class="wrap">${esc(p.host)}:${esc(p.port)}</td><td>${esc(p.type || "http")}</td><td>${klass}</td><td>${st}</td></tr>`;
+          }).join("")
+        : '<tr><td colspan="4" class="empty">OmniRoute-Register ist leer.</td></tr>';
+    }
+    async function loadInv() {
+      setPhase("Lade OmniRoute-Bestand …", true);
+      const inv = await api("/api/omni/inventory");
+      state.inventory = inv;
+      renderInv();
+      log(`Bestand: ${inv.counts.harvest} Austausch · ${inv.counts.manual} eigene · ${inv.counts.oneproxy} 1proxy.`);
+      setPhase("Bestand geladen.");
+    }
+
+    /* ── Quellen ────────────────────────────────────────────── */
+    async function loadSources() {
+      const meta = await api("/api/meta");
+      $("src-list").innerHTML = (meta.sources || []).map((s) =>
+        `<label><input type="checkbox" value="${esc(s.id)}" checked /> ${esc(s.name)}</label>`).join("");
+      $("src-count").textContent = `(${meta.sources.length})`;
+      $("src-list").addEventListener("change", updateSrcCount);
+      $("src-all").addEventListener("click", () => setAllSources(true));
+      $("src-none").addEventListener("click", () => setAllSources(false));
+    }
+    function setAllSources(on) {
+      document.querySelectorAll("#src-list input").forEach((c) => { c.checked = on; });
+      updateSrcCount();
+    }
+    function updateSrcCount() {
+      const total = document.querySelectorAll("#src-list input").length;
+      const on = document.querySelectorAll("#src-list input:checked").length;
+      $("src-count").textContent = `(${on}/${total})`;
+    }
+
+    /* ── Harvest / Check ────────────────────────────────────── */
+    async function doHarvest() {
+      const btn = $("btn-harvest");
+      busy(btn, true, "Hole …");
+      setPhase("Hole öffentliche Listen …", true);
+      try {
+        const data = await post("/api/harvest", { limit: 180, types: selectedTypes(), sources: checkedSources() });
+        state.candidates = data.proxies || [];
+        state.selected = new Set();
+        renderCand();
+        for (const s of data.sources || []) {
+          log(`${s.id}: ${s.found} Kandidaten${s.error ? " · Fehler: " + s.error : ""}`, Boolean(s.error));
+        }
+        setPhase(`${data.count} Kandidaten bereit zur Prüfung.`);
+      } catch (e) {
+        log("Harvest fehlgeschlagen: " + e.message, true);
+        setPhase("Harvest fehlgeschlagen.");
+      } finally { busy(btn, false); }
+    }
+    function renderCand() {
+      const rows = [];
+      let live = 0, dead = 0, risky = 0;
+      state.candidates.forEach((p, i) => {
+        const idx = p._idx ?? (p._idx = "c" + i + ":" + p.host + ":" + p.port);
+        let chk = '<span class="pill">ungeprüft</span>';
+        let extra = esc(p.country || "");
+        if (p.https_ok) {
+          chk = '<span class="pill live">HTTPS ok</span>'; live++;
+          extra = `${esc(p.latency_ms ?? "—")} · ${esc(p.exit_ip || "")}`;
+          if (p.risk === "tls-intercept") { chk += ' <span class="pill dead">TLS abgefangen</span>'; risky++; }
+          else if (p.risk === "ip-mismatch") { chk += ' <span class="pill http">IP wechselt</span>'; risky++; }
+        } else if (p.ok) { chk = '<span class="pill http">nur HTTP</span>'; extra = esc(p.error || extra); }
+        else if (p.checked_at) { chk = '<span class="pill dead">tot</span>'; dead++; extra = esc(p.error || ""); }
+        const sel = state.selected.has(idx);
+        rows.push(`<tr draggable="true" data-idx="${esc(idx)}">
+          <td><input type="checkbox" class="rowchk cand" data-idx="${esc(idx)}" ${sel ? "checked" : ""} /></td>
+          <td class="wrap">${esc(p.host)}:${esc(p.port)}</td>
+          <td>${esc(p.type || "http")}</td>
+          <td>${esc(p.source || "")}</td>
+          <td>${chk}</td>
+          <td class="wrap">${extra}</td>
+        </tr>`);
+      });
+      $("kpi-live").textContent = live;
+      $("kpi-dead").textContent = dead;
+      $("kpi-sel").textContent = state.selected.size;
+      $("btn-push").disabled = state.selected.size === 0;
+      $("har-meta").textContent = `${state.candidates.length} Kandidaten · ${live} lebendig` + (risky ? ` · ${risky} riskant` : "");
+      $("har-body").innerHTML = rows.join("") || '<tr><td colspan="6" class="empty">Noch keine Listen geholt.</td></tr>';
+    }
+    async function doCheck() {
+      const btn = $("btn-check");
+      if (!state.candidates.length) { await doHarvest(); if (!state.candidates.length) return; }
+      busy(btn, true, "Prüfe …");
+      setPhase("Prüfe Kandidaten (Ziel-HTTPS) …", true);
+      try {
+        const data = await post("/api/check", { proxies: state.candidates, types: selectedTypes(), timeout: 7, concurrency: 18, limit: 140 });
+        state.candidates = data.proxies || [];
+        renderCand();
+        log(`Prüfung: ${data.https_ok} HTTPS ok · ${data.http_only} nur HTTP · ${data.dead} tot.`);
+        setPhase("Prüfung fertig. Nur HTTPS-Lebendige werden übernommen.");
+      } catch (e) {
+        log("Prüfung fehlgeschlagen: " + e.message, true);
+        setPhase("Prüfung fehlgeschlagen.");
+      } finally { busy(btn, false); }
+    }
+
+    /* ── Auswahl / manuelles Übernehmen ─────────────────────── */
+    $("har-body").addEventListener("change", (ev) => {
+      const cb = ev.target.closest("input.cand");
+      if (!cb) return;
+      if (cb.checked) state.selected.add(cb.dataset.idx); else state.selected.delete(cb.dataset.idx);
+      $("kpi-sel").textContent = state.selected.size;
+      $("btn-push").disabled = state.selected.size === 0;
+    });
+    $("chk-all").addEventListener("change", () => {
+      const on = $("chk-all").checked;
+      state.selected = new Set(on ? state.candidates.map((p, i) => p._idx ?? (p._idx = "c" + i + ":" + p.host + ":" + p.port)) : []);
+      renderCand();
+    });
+
+    /* ── Drag & Drop: Kandidaten (rechts) → Bestand (links) ─── */
+    function candBy(idx) {
+      return state.candidates.find((p, i) => (p._idx ?? "c" + i + ":" + p.host + ":" + p.port) === idx);
+    }
+    $("har-body").addEventListener("dragstart", (ev) => {
+      const tr = ev.target.closest("tr[data-idx]");
+      if (!tr) return;
+      const idx = tr.dataset.idx;
+      let chosen;
+      if (state.selected.has(idx) && state.selected.size > 1) {
+        chosen = [...state.selected].map(candBy).filter(Boolean); // mehrere gezogene Auswahl
+      } else {
+        chosen = [candBy(idx)].filter(Boolean);
+      }
+      state.dragging = chosen;
+      ev.dataTransfer.setData("text/plain", `${chosen.length} Proxy/Proxies`);
+      ev.dataTransfer.effectAllowed = "copy";
+      $("inv-panel").classList.add("dropzone");
+    });
+    $("har-body").addEventListener("dragend", () => {
+      state.dragging = null;
+      $("inv-panel").classList.remove("dropzone");
+    });
+    $("inv-panel").addEventListener("dragover", (ev) => {
+      if (!state.dragging) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "copy";
+    });
+    $("inv-panel").addEventListener("drop", async (ev) => {
+      ev.preventDefault();
+      $("inv-panel").classList.remove("dropzone");
+      const chosen = state.dragging || [];
+      state.dragging = null;
+      if (!chosen.length) return;
+      setPhase(`Übernehme ${chosen.length} Proxies (Drag & Drop) …`, true);
+      try {
+        const data = await post("/api/push-selected", { proxies: chosen });
+        log(`Drag & Drop: ${data.counts.pushed} übernommen · ${data.counts.skipped} übersprungen · ${data.counts.failed} fehlgeschlagen.`);
+        for (const s of data.skipped || []) log(`übersprungen ${s.host}:${s.port} — ${s.reason}`, true);
+        setPhase(`Drag & Drop fertig: ${data.counts.pushed} übernommen.`);
+        loadInv().catch(() => {});
+      } catch (e) {
+        log("Drag & Drop fehlgeschlagen: " + e.message, true);
+        setPhase("Drag & Drop fehlgeschlagen.");
+      }
+    });
+    async function doPush() {
+      const btn = $("btn-push");
+      const chosen = state.candidates.filter((p, i) => state.selected.has(p._idx ?? "c" + i + ":" + p.host + ":" + p.port));
+      if (!chosen.length) return;
+      busy(btn, true, "Schreibe …");
+      setPhase(`Übernehme ${chosen.length} ausgewählte Proxies …`, true);
+      try {
+        const data = await post("/api/push-selected", { proxies: chosen });
+        log(`Übernommen: ${data.counts.pushed} geschrieben · ${data.counts.skipped} übersprungen (nicht HTTPS-geprüft) · ${data.counts.failed} fehlgeschlagen.`);
+        for (const f of data.failed || []) log(`Push fehlgeschlagen ${f.host}:${f.port} — ${f.error}`, true);
+        setPhase(`Übernahme fertig: ${data.counts.pushed} geschrieben.`);
+        state.selected = new Set();
+        $("chk-all").checked = false;
+        renderCand();
+        loadInv().catch(() => {});
+      } catch (e) {
+        log("Übernahme fehlgeschlagen: " + e.message, true);
+        setPhase("Übernahme fehlgeschlagen.");
+      } finally { busy(btn, false); }
+    }
+
+    /* ── Austausch (SSE) ────────────────────────────────────── */
+    function exchangeParams() {
+      return {
+        timeout: parseFloat($("p-timeout").value) || 7,
+        concurrency: parseInt($("p-conc").value, 10) || 16,
+        harvest_limit: parseInt($("p-harvest").value, 10) || 140,
+        max_push: parseInt($("p-push").value, 10) || 25,
+      };
+    }
+    async function doExchange() {
+      const btn = $("btn-ex");
+      busy(btn, true, "Läuft …");
+      log("Starte Austausch — schreibt nur manuelle Proxies.");
+      try {
+        const r = await fetch("/api/exchange", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...exchangeParams(),
+            remove_dead_harvest: true, push_live: true, check_oneproxy: true,
+            types: selectedTypes(), sources: checkedSources(),
+          }),
+        });
+        if (r.status === 409) {
+          log("Es läuft bereits ein Austausch — beobachte den laufenden Job.", true);
+          setPhase("Austausch läuft bereits.");
+          return;
+        }
+        if (!r.ok || !r.body) {
+          const data = await r.json().catch(() => null);
+          throw new Error(data?.detail || "HTTP " + r.status);
+        }
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const parts = buf.split("\n\n");
+          buf = parts.pop();
+          for (const block of parts) handleSse(block);
+        }
+      } catch (e) {
+        log("Austausch abgebrochen: " + e.message + " — hole Status nach.", true);
+      } finally {
+        busy(btn, false);
+        syncJobStatus();
+      }
+    }
+    function handleSse(block) {
+      const ev = (block.match(/^event: (.+)$/m) || [])[1];
+      const raw = (block.match(/^data: (.+)$/m) || [])[1];
+      if (!ev || !raw) return;
+      let data;
+      try { data = JSON.parse(raw); } catch { return; }
+      if (ev === "phase") setPhase(data.label || data.step, true);
+      if (ev === "log") log(data.text);
+      if (ev === "removed") log(`entfernt (tot) ${data.host}:${data.port}`);
+      if (ev === "pushed") log(`eingetragen ${data.host}:${data.port} (${data.ms ?? "?"} ms)`);
+      if (ev === "push_fail") log(`Push fehlgeschlagen ${data.host}:${data.port} — ${data.error}`, true);
+      if (ev === "error") { log("Fehler: " + data.message, true); setPhase("Fehler.", false); }
+      if (ev === "done") {
+        log(`Fertig. Entfernt ${(data.removed || []).length} · geschrieben ${(data.pushed || []).length} · 1proxy tot: ${(data.oneproxy_dead || []).length} (nur geprüft, nicht ersetzt).`);
+        setPhase("Austausch fertig.");
+        loadInv().catch(() => {});
+      }
+    }
+
+    /* ── Job-Status (auch nach Reload / bei Scheduler-Läufen) ── */
+    let jobWasRunning = false;
+    async function syncJobStatus() {
+      let st;
+      try { st = await api("/api/job-status"); } catch { return; }
+      const running = Boolean(st.running);
+      if (running) {
+        setPhase(`Austausch läuft: ${st.phase_label || st.phase || "…"} (Server-seitig — Seite kann neu geladen werden)`, true);
+        busy($("btn-ex"), true, "Läuft …");
+      } else {
+        if (jobWasRunning) {
+          setPhase("Austausch fertig.");
+          loadInv().catch(() => {});
+        }
+        busy($("btn-ex"), false);
+      }
+      jobWasRunning = running;
+    }
+
+    /* ── Provider zuordnen ──────────────────────────────────── */
+    async function doAssign() {
+      const btn = $("btn-assign");
+      busy(btn, true, "Ordne …");
+      setPhase("Ordne die besten Proxies den Providern zu …", true);
+      try {
+        const data = await post("/api/assign-providers", { count: 3 });
+        log(`Provider: ${(data.providers || []).join(", ")} · beste: ${(data.best || []).join(", ")}`);
+        for (const [pid, a] of Object.entries(data.assigned || {})) {
+          const err = a.ok ? "" : ` — Fehler ${a.status}`;
+          log(`Provider ${pid}: ${a.proxy}${err}`, Boolean(a.ok));
+        }
+        if (data.pool_mode === false && data.pool_mode_reason) log(data.pool_mode_reason);
+        const ver = Object.entries(data.verified || {});
+        if (ver.length) {
+          log("Nachprüfung in OmniRoute (scope=provider):");
+          for (const [pid, items] of ver) {
+            log(`  ${pid}: ${(items || []).map((i) => i.proxy || i.proxy_id).join(", ") || "(keine Zuordnung)"}`);
+          }
+        }
+        setPhase("Zuordnung fertig.");
+      } catch (e) {
+        log("Zuordnung fehlgeschlagen: " + e.message, true);
+        setPhase("Zuordnung fehlgeschlagen.");
+      } finally { busy(btn, false); }
+    }
+
+    /* ── Traffic ────────────────────────────────────────────── */
+    function startTraffic() {
+      stopTraffic();
+      pollTraffic();
+      state.trafficTimer = setInterval(pollTraffic, 5000);
+    }
+    function stopTraffic() {
+      clearInterval(state.trafficTimer);
+      state.trafficTimer = null;
+    }
+    async function pollTraffic() {
+      $("traffic-phase-text").textContent = "Frage ab …";
+      try {
+        const data = await api("/api/omni/proxy-logs?limit=80");
+        state.trafficItems = data.logs || [];
+        renderTraffic(state.trafficItems);
+        $("traffic-phase-text").textContent = state.trafficItems.length ? "Aktiv." : "Noch kein Proxy-Traffic seit Start.";
+      } catch (e) {
+        $("traffic-tag").textContent = "—";
+        $("traffic-meta").textContent = "—";
+        $("traffic-phase-text").textContent = "Nicht verfügbar: " + e.message;
+        $("traffic-body").innerHTML = `<tr><td colspan="6" class="empty">${esc(e.message)}</td></tr>`;
+      }
+    }
+    function renderTraffic(items) {
+      const q = $("traffic-filter").value.trim().toLowerCase();
+      const onlyProxy = $("traffic-onlyproxy").checked;
+      const shown = items.filter((it) => {
+        if (onlyProxy && !it.proxy) return false;
+        if (!q) return true;
+        return `${it.proxy || ""} ${it.provider || ""} ${it.targetUrl || ""} ${it.error || ""}`.toLowerCase().includes(q);
+      });
+      $("traffic-tag").textContent = items.length ? "live" : "leer";
+      $("traffic-tag").className = "tag" + (items.length ? " live" : "");
+      $("traffic-meta").textContent = `${shown.length}/${items.length} Einträge · aktualisiert ${nowTime()}`;
+      if (!shown.length) {
+        $("traffic-body").innerHTML = `<tr><td colspan="6" class="empty">${items.length
+          ? "Filter trifft auf keinen Eintrag zu."
+          : "OmniRoute hat seit dem letzten Start keinen Request über einen Proxy geschickt."}</td></tr>`;
+        return;
+      }
+      $("traffic-body").innerHTML = shown.map((it) => {
+        const ts = it.timestamp || it.created_at || it.at || "";
+        const time = ts ? new Date(ts).toLocaleTimeString("de-DE", { hour12: false }) : "—";
+        const proxy = String(it.proxy || (it.level === "direct" ? "direkt (kein Proxy)" : it.proxy_url || "—"))
+          .replace(/^\w+:\/\//, "").replace(/^(.*):\/\/.*@/, "$1@");
+        const status = it.status_code ?? it.status ?? "—";
+        const ok = status === "success" || (Number(status) >= 200 && Number(status) < 400);
+        const statusLabel = typeof status === "number" ? status : String(status);
+        return `<tr>
+          <td>${esc(time)}</td>
+          <td class="wrap">${esc(proxy)}</td>
+          <td>${esc(it.provider || it.provider_id || "—")}</td>
+          <td><span class="pill ${ok ? "ok" : "err"}">${esc(statusLabel)}</span></td>
+          <td>${esc(it.latency_ms != null ? it.latency_ms + " ms" : (it.latencyMs != null ? it.latencyMs + " ms" : "—"))}</td>
+          <td class="wrap">${esc(it.error || "")}</td>
+        </tr>`;
+      }).join("");
+    }
+    $("traffic-filter").addEventListener("input", () => renderTraffic(state.trafficItems));
+    $("traffic-onlyproxy").addEventListener("change", () => renderTraffic(state.trafficItems));
+
+    /* ── Zeitplan ───────────────────────────────────────────── */
+    async function refreshSchedule() {
+      try {
+        const st = await api("/api/schedule");
+        $("sched-enabled").checked = Boolean(st.enabled);
+        $("sched-interval").value = st.interval_min;
+        const fmt = (iso) => iso ? new Date(iso).toLocaleTimeString("de-DE", { hour12: false }) : "—";
+        $("sched-status").innerHTML =
+          `Aktiv: <b>${st.enabled ? "ja" : "nein"}</b> · Intervall: ${esc(st.interval_min)} min · ` +
+          `Nächster Lauf: ${st.next_run ? fmt(st.next_run) : "—"} · Letzter Lauf: ${st.last_run ? fmt(st.last_run) : "—"}` +
+          (st.last_error ? ` · <span style="color:var(--bad)">Fehler: ${esc(st.last_error)}</span>` : "") +
+          (st.warning ? ` · <span style="color:var(--warn)">${esc(st.warning)}</span>` : "");
+        $("sched-hint").textContent = "";
+      } catch (e) {
+        $("sched-status").textContent = "Zeitplan nicht lesbar: " + e.message;
+      }
+    }
+    async function saveSchedule() {
+      const btn = $("btn-sched");
+      busy(btn, true, "Speichere …");
+      try {
+        await post("/api/schedule", {
+          enabled: $("sched-enabled").checked,
+          interval_min: parseInt($("sched-interval").value, 10) || 60,
+          types: selectedTypes(),
+          sources: checkedSources(),
+        });
+        log(`Zeitplan gespeichert: ${$("sched-enabled").checked ? "aktiv" : "aus"}, alle ${$("sched-interval").value} min (nutzt aktuelle Typ-/Quellen-Auswahl).`);
+        await refreshSchedule();
+      } catch (e) {
+        log("Zeitplan fehlgeschlagen: " + e.message, true);
+      } finally { busy(btn, false); }
+    }
+
+    /* ── Bad Wolf: Ablage der Hub-KI ────────────────────────── */
+    async function refreshTray() {
+      const d = await api("/api/tray");
+      renderTray(d.items || []);
+    }
+    function renderTray(items) {
+      const badge = $("wolf-badge");
+      badge.hidden = items.length === 0;
+      badge.textContent = items.length;
+      $("tray-body").innerHTML = items.length
+        ? items.map((t) => `
+          <div class="tray-item">
+            <div class="ti-head">
+              <span class="pill">${esc(t.kind)}</span>
+              <span class="ti-time">${esc(fmtTime(t.at))}${t.note ? " · " + esc(t.note) : ""}</span>
+              <button class="ti-x" data-id="${esc(t.id)}" title="verwerfen">×</button>
+            </div>
+            <div class="ti-text">${esc(t.text.length > 240 ? t.text.slice(0, 240) + "…" : t.text)}</div>
+            ${t.kind === "proxy" ? `<button class="act small ti-check" data-id="${esc(t.id)}">Prüfen &amp; übernehmen</button>` : ""}
+          </div>`).join("")
+        : '<div class="empty">Bad Wolf trägt noch nichts.<br/>Zieh Proxies, Text, Links oder Dateien hierher.</div>';
+    }
+    function toggleTray(force) {
+      const el = $("tray");
+      const show = force !== undefined ? force : el.hidden;
+      el.hidden = !show;
+      if (show) refreshTray().catch(() => {});
+    }
+    async function dropToTray(dt) {
+      const items = [];
+      let tookProxies = false;
+      if (state.dragging?.length) {
+        for (const p of state.dragging) {
+          items.push({ kind: "proxy", text: `${p.host}:${p.port}`,
+            note: `${p.type || "http"} · ${p.https_ok ? "geprüft" : "ungeprüft"}${p.risk ? " · " + p.risk : ""}` });
+        }
+        tookProxies = true;
+        state.dragging = null;
+        $("inv-panel").classList.remove("dropzone");
+      }
+      // Drag-Stempel-Text („N Proxy/Proxies") nicht doppelt sammeln:
+      if (dt && !tookProxies) {
+        const text = (dt.getData("text/plain") || "").trim();
+        if (text) {
+          items.push({ kind: /^https?:\/\//i.test(text) ? "link" : "text", text });
+        }
+        for (const f of dt.files || []) {
+          try { items.push({ kind: "file", text: (await f.text()).slice(0, 4000), note: f.name }); } catch { /* unlesbar */ }
+        }
+      }
+      if (!items.length) return;
+      const d = await post("/api/tray", { items });
+      renderTray(d.items || []);
+      log(`Bad Wolf hat ${d.added} Sache${d.added === 1 ? "" : "n"} aufgenommen.`);
+      toggleTray(true);
+      refreshVoice().catch(() => {});
+    }
+    $("wolf").addEventListener("click", () => toggleTray());
+    $("tray-close").addEventListener("click", () => toggleTray(false));
+    $("tray-clear").addEventListener("click", async () => {
+      const d = await api("/api/tray", { method: "DELETE" });
+      renderTray(d.items || []);
+    });
+    $("tray-body").addEventListener("click", async (ev) => {
+      const x = ev.target.closest(".ti-x");
+      if (x) {
+        const d = await api("/api/tray?id=" + encodeURIComponent(x.dataset.id), { method: "DELETE" });
+        renderTray(d.items || []);
+        return;
+      }
+      const chk = ev.target.closest(".ti-check");
+      if (chk) {
+        chk.disabled = true;
+        chk.textContent = "Prüfe …";
+        try {
+          const r = await post("/api/tray/check?id=" + encodeURIComponent(chk.dataset.id), {});
+          if (r.pushed) {
+            log(`Bad Wolf hat ${r.host}:${r.port} geprüft (ok, ${r.ms} ms) und übernommen.`);
+          } else if (r.https_ok && r.risk) {
+            log(`Bad Wolf: ${r.host}:${r.port} lebt, ist aber riskant (${r.risk}) — nicht übernommen.`, true);
+          } else {
+            log(`Bad Wolf: ${r.host}:${r.port} ist tot.`, true);
+          }
+        } catch (e) {
+          log("Bad-Wolf-Prüfung fehlgeschlagen: " + e.message, true);
+        }
+        refreshTray().catch(() => {});
+        loadInv().catch(() => {});
+        refreshVoice().catch(() => {});
+      }
+    });
+    for (const target of [$("wolf"), $("tray")]) {
+      target.addEventListener("dragover", (ev) => { ev.preventDefault(); target.classList.add("dropzone"); });
+      target.addEventListener("dragleave", () => target.classList.remove("dropzone"));
+      target.addEventListener("drop", async (ev) => {
+        ev.preventDefault();
+        target.classList.remove("dropzone");
+        try { await dropToTray(ev.dataTransfer); } catch (e) { log("Ablage fehlgeschlagen: " + e.message, true); }
+      });
+    }
+    document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") toggleTray(false); });
+
+    /* ── Bad Wolfs Stimme ─────────────────────────── */
+    async function refreshVoice() {
+      let d;
+      try { d = await api("/api/bw-log"); } catch { return; }
+      const lines = d.lines || [];
+      const last = lines[lines.length - 1];
+      if (last) {
+        $("bw-voice-text").textContent = last.text;
+        $("bw-dot").className = "live-dot busy";
+        setTimeout(() => { $("bw-dot").className = "live-dot"; }, 2500);
+      }
+      $("h-bwolf").innerHTML = lines.length
+        ? lines.slice(-8).reverse().map((l) =>
+            `<div><span class="t">${esc(fmtTime(l.at))}</span>${esc(l.text)}</div>`).join("")
+        : "Ich habe noch nichts getan.";
+      $("h-bwolf-sub").textContent = lines.length
+        ? `Letzte Tat um ${fmtTime(lines[lines.length - 1].at)}`
+        : "Sie sammelt, prüft und tauscht — hier erzählt sie, was sie tat.";
+    }
+    setInterval(refreshVoice, 8000);
+
+/* ── Bad Wolf: Hologramm aus goldenen Partikeln ─────── */
+    const bw = { dust: [], streams: [], stars: [], t: 0, last: 0, ready: false };
+    function bwBuildMask() {
+      // Schematische Gesichts-Maske; Helligkeit steuert Partikel-Dichte/-Farbe.
+      const m = document.createElement("canvas");
+      m.width = 190; m.height = 260;
+      const c = m.getContext("2d");
+      // Haar-Seitenpartien (mitteln → Schlieren-Ströme)
+      c.fillStyle = "rgb(112,96,70)";
+      c.beginPath();
+      c.moveTo(95, 6);
+      c.bezierCurveTo(46, 6, 26, 46, 25, 92);
+      c.bezierCurveTo(24, 138, 17, 190, 6, 252);
+      c.lineTo(58, 252);
+      c.bezierCurveTo(55, 200, 57, 150, 61, 110);
+      c.bezierCurveTo(64, 78, 70, 50, 82, 34);
+      c.bezierCurveTo(87, 27, 91, 22, 95, 20);
+      c.closePath(); c.fill();
+      c.beginPath();
+      c.moveTo(95, 6);
+      c.bezierCurveTo(144, 6, 164, 46, 165, 92);
+      c.bezierCurveTo(166, 138, 173, 190, 184, 252);
+      c.lineTo(132, 252);
+      c.bezierCurveTo(135, 200, 133, 150, 129, 110);
+      c.bezierCurveTo(126, 78, 120, 50, 108, 34);
+      c.bezierCurveTo(103, 27, 99, 22, 95, 20);
+      c.closePath(); c.fill();
+      c.beginPath();
+      c.moveTo(95, 10);
+      c.bezierCurveTo(76, 10, 67, 23, 63, 42);
+      c.lineTo(127, 42);
+      c.bezierCurveTo(123, 23, 114, 10, 95, 10);
+      c.closePath(); c.fill();
+      // Gesicht (hell → dichter Staub)
+      c.fillStyle = "rgb(180,170,150)";
+      c.beginPath();
+      c.moveTo(95, 40);
+      c.bezierCurveTo(73, 40, 63.5, 59, 64, 84);
+      c.bezierCurveTo(64.5, 112, 75, 140, 95, 158);
+      c.bezierCurveTo(115, 140, 125.5, 112, 126, 84);
+      c.bezierCurveTo(126.5, 59, 117, 40, 95, 40);
+      c.closePath(); c.fill();
+      // Wangen-Skulptur: weniger Dichte unter den Wangenknochen
+      c.fillStyle = "rgb(120,112,100)";
+      c.beginPath(); c.ellipse(77, 114, 8, 5, -0.3, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(113, 114, 8, 5, 0.3, 0, 7); c.fill();
+      // Lippen
+      c.fillStyle = "rgb(160,105,95)";
+      c.beginPath(); c.ellipse(95, 133, 9, 3.4, 0, 0, 7); c.fill();
+      // Tränenströme
+      c.strokeStyle = "rgb(230,190,110)"; c.lineWidth = 2.4; c.lineCap = "round";
+      c.beginPath(); c.moveTo(84, 96); c.bezierCurveTo(84, 114, 83, 132, 82, 158); c.stroke();
+      c.beginPath(); c.moveTo(106, 96); c.bezierCurveTo(106, 114, 107, 132, 108, 158); c.stroke();
+      // Brauen (Partikel-Bögen) und Nase: geben dem Gesicht Struktur
+      c.strokeStyle = "rgb(90,80,62)"; c.lineWidth = 2.6; c.lineCap = "round";
+      c.beginPath(); c.moveTo(75, 79); c.quadraticCurveTo(81, 75.5, 88, 78); c.stroke();
+      c.beginPath(); c.moveTo(102, 78); c.quadraticCurveTo(109, 75.5, 115, 79); c.stroke();
+      c.strokeStyle = "rgb(150,140,122)"; c.lineWidth = 1.8;
+      c.beginPath(); c.moveTo(95, 97); c.lineTo(93.5, 112); c.stroke();
+      c.beginPath(); c.moveTo(93.5, 114); c.quadraticCurveTo(95, 116.5, 96.5, 114); c.stroke();
+      // Augen: glühende Blobs
+      for (const [ex, ey] of [[82, 90], [108, 90]]) {
+        const g = c.createRadialGradient(ex, ey, 0, ex, ey, 12);
+        g.addColorStop(0, "rgb(255,240,205)");
+        g.addColorStop(0.5, "rgb(255,210,130)");
+        g.addColorStop(1, "rgba(255,210,130,0)");
+        c.fillStyle = g;
+        c.beginPath(); c.arc(ex, ey, 12, 0, 7); c.fill();
+        c.fillStyle = "rgb(255,246,220)";
+        c.beginPath(); c.arc(ex, ey, 4, 0, 7); c.fill();
+      }
+      return m;
+    }
+    function bwLumColor(lum, a) {
+      return lum > 0.85 ? `rgba(255,244,214,${a})`
+        : lum > 0.62 ? `rgba(240,190,95,${a})`
+        : lum > 0.4 ? `rgba(200,150,62,${a * 0.9})`
+        : `rgba(140,106,48,${a * 0.75})`;
+    }
+    function bwInit() {
+      const mask = bwBuildMask();
+      const data = mask.getContext("2d").getImageData(0, 0, 190, 260).data;
+      const rnd = Math.random;
+      bw.dust = []; bw.streams = [];
+      for (let y = 1; y < 260; y++) {
+        for (let x = 1; x < 190; x++) {
+          const i = (y * 190 + x) * 4;
+          if (data[i + 3] < 60) continue;
+          const lum = (data[i] + data[i + 1] + data[i + 2]) / 3 / 255;
+          const dEyeL = Math.hypot(x - 82, y - 90), dEyeR = Math.hypot(x - 108, y - 90);
+          if (dEyeL < 12 || dEyeR < 12) {
+            // Augenumgebung: dichtester, hellster Staub
+            if (rnd() < 0.7) {
+              bw.dust.push({ hx: x, hy: y, amp: 0.2 + rnd() * 0.35, spd: 0.4 + rnd() * 0.9,
+                ph: rnd() * 6.28, r: 0.32 + lum * 0.55, lum: Math.min(1, lum + 0.18) });
+            }
+            continue;
+          }
+          const inFace = x > 64 && x < 126 && y > 42 && y < 158;
+          if (inFace) {
+            if (rnd() < 0.55) {
+              bw.dust.push({ hx: x, hy: y, amp: 0.3 + rnd() * 0.5, spd: 0.3 + rnd() * 0.8,
+                ph: rnd() * 6.28, r: 0.3 + lum * 0.5, lum });
+            }
+            continue;
+          }
+          // Haar/Rand: feine Schlieren, die seitlich entweichen und sich neu formieren
+          if (rnd() < 0.3) {
+            const dir = x < 95 ? -1 : 1;
+            bw.streams.push({ hx: x, hy: y, vx: dir * (3 + rnd() * 9), off: 0,
+              max: 6 + rnd() * 13, lum, r: 0.28 + lum * 0.45,
+              ph: rnd() * 6.28, spd: 0.5 + rnd() });
+          }
+        }
+      }
+      bw.stars = [
+        { x: 82, y: 172, s: 2.6, ph: 0 }, { x: 108, y: 192, s: 2.2, ph: 2 },
+        { x: 95, y: 214, s: 1.8, ph: 4 }, { x: 86, y: 238, s: 1.4, ph: 1 },
+      ];
+      bw.ready = true;
+    }
+    function bwDraw(t, dt) {
+      const cv = $("bw-canvas");
+      const ctx = cv.getContext("2d");
+      ctx.setTransform(2, 0, 0, 2, 0, 0);
+      ctx.clearRect(0, 0, 190, 260);
+      // Weicher Goldschleier hinter der Figur (Glow-Grundierung)
+      const bloom = ctx.createRadialGradient(95, 100, 12, 95, 115, 135);
+      bloom.addColorStop(0, "rgba(217,164,65,0.10)");
+      bloom.addColorStop(1, "rgba(217,164,65,0)");
+      ctx.fillStyle = bloom;
+      ctx.fillRect(0, 0, 190, 260);
+      // Schlieren: entweichen seitlich, als feine Streifen gezeichnet
+      for (const s of bw.streams) {
+        s.off += s.vx * dt;
+        if (Math.abs(s.off) > s.max) { s.off = 0; s.ph = Math.random() * 6.28; }
+        const tw = 0.5 + 0.5 * Math.sin(t * s.spd + s.ph);
+        const x = s.hx + s.off;
+        const y = s.hy + Math.sin(t * s.spd * 0.6 + s.ph) * 0.9;
+        ctx.strokeStyle = bwLumColor(s.lum, s.lum * (0.12 + 0.5 * tw));
+        ctx.lineWidth = s.r;
+        ctx.beginPath();
+        ctx.moveTo(x - s.vx * 0.14, y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+      // Staub: Gesicht und Augenregion
+      for (const p of bw.dust) {
+        const tw = 0.55 + 0.45 * Math.sin(t * p.spd + p.ph);
+        const a = Math.min(1, p.lum * (0.3 + 0.7 * tw));
+        const x = p.hx + Math.sin(t * p.spd + p.ph) * p.amp;
+        const y = p.hy + Math.cos(t * p.spd * 0.8 + p.ph * 1.7) * p.amp * 0.7;
+        ctx.fillStyle = bwLumColor(p.lum, a);
+        ctx.fillRect(x - p.r / 2, y - p.r / 2, p.r, p.r);
+      }
+      // Ihre Augen: zwei fest leuchtende Sterne, stärker als alles andere
+      for (const [ex, ey] of [[82, 90], [108, 90]]) {
+        const pulse = 0.85 + 0.15 * Math.sin(t * 1.1 + ex);
+        const g = ctx.createRadialGradient(ex, ey, 0, ex, ey, 11 * pulse);
+        g.addColorStop(0, "rgba(255,240,200,0.98)");
+        g.addColorStop(0.4, "rgba(235,185,90,0.6)");
+        g.addColorStop(1, "rgba(217,164,65,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(ex, ey, 11 * pulse, 0, 7); ctx.fill();
+        ctx.fillStyle = "rgba(255,248,225,0.98)";
+        ctx.beginPath(); ctx.arc(ex, ey, 1.9, 0, 7); ctx.fill();
+      }
+      // Ihre Tränen werden zu Sternen
+      for (const s of bw.stars) {
+        const tw = 0.5 + 0.5 * Math.sin(t * 1.3 + s.ph);
+        const r = s.s * (0.75 + 0.45 * tw);
+        ctx.strokeStyle = `rgba(232,200,118,${0.18 + 0.45 * tw})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - r); ctx.lineTo(s.x, s.y + r);
+        ctx.moveTo(s.x - r, s.y); ctx.lineTo(s.x + r, s.y);
+        ctx.stroke();
+      }
+    }
+    function bwLoop(ts) {
+      if (bw.ready && !document.hidden) {
+        const dt = Math.min(0.05, (ts - bw.last) / 1000 || 0.016);
+        bw.last = ts; bw.t += dt;
+        bwDraw(bw.t, dt);
+      }
+      requestAnimationFrame(bwLoop);
+    }
+    bwInit();
+    bwDraw(0, 0.016); // sofort ein Standbild, damit nichts leer blinkt
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      requestAnimationFrame(bwLoop);
+    }
+
+    /* ── Wiring & Start ─────────────────────────────────────── */
+    $("conn-form").addEventListener("submit", connect);
+    $("btn-inv").addEventListener("click", () => loadInv().catch((e) => { log("Bestand: " + e.message, true); setPhase("Bestand nicht lesbar."); }));
+    $("btn-harvest").addEventListener("click", doHarvest);
+    $("btn-check").addEventListener("click", doCheck);
+    $("btn-ex").addEventListener("click", doExchange);
+    $("btn-push").addEventListener("click", doPush);
+    $("btn-assign").addEventListener("click", doAssign);
+    $("btn-sched").addEventListener("click", saveSchedule);
+
+    log("Schaltwerk bereit — Hub verbunden, Austausch einsatzbereit.");
+    log("Austausch schreibt ausschließlich manuelle Proxies nach OmniRoute — die 1proxy-Kategorie wird nur gelesen.");
+    loadSources().catch((e) => log("Quellen nicht ladbar: " + e.message, true));
+    loadInv().catch(() => {}); // Bestand leise vorladen für die Übersicht
+    syncJobStatus(); // Läuft auf dem Server noch ein Job (z. B. nach Reload)? Dann weiter beobachten.
+    setInterval(syncJobStatus, 5000); // dauerhafter Poll — deckt auch Scheduler-Läufe ab
+    connect().catch(() => {}); // versucht Standard-URL; ohne Key meldet OmniRoute sich schon
+    pollHub().catch(() => {}); // erste Daten für die Übersicht
+    refreshTray().catch(() => {}); // Bad-Wolf-Zähler starten
+    refreshVoice().catch(() => {}); // ihre Stimme starten
+  </script>
+</body>
+</html>
