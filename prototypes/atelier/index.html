@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Omnia Atelier — Prototyp (simulierte Events)</title>
+<!--
+  Omnia Atelier · UX-Prototyp Phase 3
+  Ein HTML-File, kein Build, keine CDN-Abhängigkeit (Repo-Präzedenz: schaltwerk/static/index.html).
+  ALLE Events sind simuliert (MockAdapter). Kein Netz, keine OmniRoute, keine Secrets.
+  Tokens übernommen aus schaltwerk/static/index.html (Abschnitt 4.3 der Dokumentation).
+-->
+<style>
+  :root{
+    --bg:#0d0e12; --panel:#13141a; --panel-2:#191a21;
+    --line:#262833; --line-2:#33353f;
+    --ink:#d6d7dd; --muted:#8a8c99; --faint:#5c5e6a;
+    --eye:#d9a441; --eye-dim:#8a6a34;
+    --ok:#5f8a6a; --warn:#b9924a; --bad:#a25a55; --neutral:#6b6d7a;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line-2);
+    border-radius:3px;padding:5px 11px;cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--muted);background:var(--panel-2)}
+  button:disabled{opacity:.4;cursor:default}
+  button.primary{background:var(--ink);border-color:var(--ink);color:#111213;font-weight:650}
+  button.ghost{border-color:var(--line);color:var(--muted)}
+  .lbl{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .mono{font-family:var(--mono);font-size:10.5px}
+
+  /* ---------- Raum ---------- */
+  .room{display:grid;height:100vh;
+    grid-template-columns:232px minmax(0,1fr) 216px;
+    grid-template-rows:auto minmax(0,1fr) auto;
+    grid-template-areas:"voice voice voice" "wall bench ablage" "fragen fragen fragen"}
+
+  /* Stimme: eine Zeile, kein Chatfenster */
+  .voice{grid-area:voice;border-bottom:1px solid var(--line);background:var(--panel);
+    padding:9px 18px;display:flex;align-items:center;gap:10px}
+  .voice .dot{width:6px;height:6px;border-radius:50%;background:var(--eye);flex:0 0 auto}
+  .voice.speaking .dot{animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .voice .txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .voice .txt b{font-weight:600}
+
+  /* Materialwand */
+  .wall{grid-area:wall;border-right:1px solid var(--line);background:#0f1015;
+    overflow-y:auto;padding:12px 10px}
+  .wall h2,.ablage h2{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 10px;font-weight:600}
+  .mat{border:1px solid var(--line);border-radius:3px;padding:8px 9px;margin-bottom:7px;cursor:grab;
+    background:var(--panel);transition:border-color .15s,background .15s}
+  .mat:hover{border-color:var(--line-2)}
+  .mat.on-bench{border-color:var(--eye-dim);background:#1a1712}
+  .mat.hl{border-color:var(--eye);box-shadow:0 0 0 1px var(--eye) inset}
+  .mat .n{font-family:var(--mono);font-size:11px;word-break:break-all}
+  .mat .m{color:var(--faint);font-family:var(--mono);font-size:9.5px;margin-top:3px}
+  .mat.drop-active{border-color:var(--eye);background:#1a1712}
+
+  /* Werkbank */
+  .bench{grid-area:bench;background:var(--panel);overflow-y:auto;padding:22px 34px 40px;
+    display:flex;justify-content:center}
+  .bench-inner{width:100%;max-width:720px}
+  .empty{color:var(--muted);padding:70px 0;text-align:center;line-height:1.7}
+  .empty .big{font-family:var(--serif);font-size:19px;color:var(--ink);margin-bottom:8px}
+
+  .wp-title{font-family:var(--serif);font-size:26px;line-height:1.25;margin:0 0 4px;font-weight:500}
+  .wp-meta{color:var(--faint);font-family:var(--mono);font-size:10px;margin-bottom:22px}
+  .wp-meta .tag{border:1px solid var(--line-2);border-radius:3px;padding:1px 5px;margin-right:6px}
+
+  /* Werkzeugspur — Fortschritt, keine Spinner-Wolke */
+  .track{display:flex;gap:6px;margin:0 0 20px;flex-wrap:wrap}
+  .slot{font-family:var(--mono);font-size:10px;color:var(--faint);border:1px solid var(--line);
+    border-radius:3px;padding:3px 8px;display:flex;align-items:center;gap:6px}
+  .slot.active{color:var(--ink);border-color:var(--line-2)}
+  .slot.done{color:var(--muted);border-color:var(--line)}
+  .slot.fallback{color:var(--eye);border-color:var(--eye-dim)}
+  .slot .bar{width:34px;height:2px;background:var(--line-2);overflow:hidden}
+  .slot .bar i{display:block;height:100%;background:var(--muted);width:0;transition:width .6s linear}
+  .slot.fallback .bar i{background:var(--eye)}
+  .slot.done .bar i{width:100%!important;background:var(--ok)}
+
+  /* Abschnitte: Fortlauftext, kein Kartenraster */
+  .sec{border-left:2px solid var(--line);padding:0 0 0 14px;margin-bottom:20px;position:relative}
+  .sec.fresh{animation:drop .35s ease-out}
+  @keyframes drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .sec h3{font-family:var(--sans);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 6px;display:flex;align-items:center;gap:8px}
+  .sec .body{font-family:var(--serif);font-size:15px;line-height:1.62;color:var(--ink);
+    max-width:68ch;outline:none}
+  .sec .body:focus{background:#16171d;box-shadow:0 0 0 3px #16171d}
+  .sec .cites{margin-top:7px;display:flex;gap:6px;flex-wrap:wrap}
+  .cite{font-family:var(--mono);font-size:9.5px;color:var(--muted);border:1px solid var(--line);
+    border-radius:3px;padding:1px 6px;cursor:pointer}
+  .cite:hover{color:var(--ink);border-color:var(--line-2)}
+  .sec .edit-hint{margin-top:6px;font-family:var(--mono);font-size:9.5px;color:var(--eye)}
+
+  /* Belegstatus: Zeichen + Text, nie Farbe allein */
+  .ev{font-family:var(--mono);font-size:10px;display:inline-flex;align-items:center;gap:4px}
+  .ev.belegt{color:var(--ok)} .ev.teilweise{color:var(--warn)} .ev.offen{color:var(--warn)}
+  .ev.widersprochen{color:var(--bad)} .ev.unbelegbar{color:var(--neutral)}
+
+  /* Fallback-Karte: am Abschnitt, nie als Toast */
+  .fallback{border:1px solid var(--eye-dim);background:#1a1712;border-radius:3px;
+    padding:10px 12px;margin:10px 0 0;font-size:12px;line-height:1.55}
+  .fallback .h{color:var(--eye);font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;
+    text-transform:uppercase;margin-bottom:5px}
+  .fallback .impact{color:var(--muted);margin-top:5px}
+  .fallback .acts{margin-top:9px;display:flex;gap:8px}
+
+  /* Ablage */
+  .ablage{grid-area:ablage;border-left:1px solid var(--line);background:#0f1015;
+    overflow-y:auto;padding:12px 10px}
+  .ver{border:1px solid var(--line);border-radius:3px;padding:7px 9px;margin-bottom:7px;cursor:pointer}
+  .ver:hover{border-color:var(--line-2)}
+  .ver.cur{border-color:var(--eye-dim);background:#1a1712}
+  .ver .v{font-family:var(--mono);font-size:11px}
+  .ver .s{color:var(--faint);font-family:var(--mono);font-size:9.5px;margin-top:2px}
+
+  /* Fragenleiste: persistent, blockierend zuerst */
+  .fragen{grid-area:fragen;border-top:1px solid var(--line);background:#0f1015;
+    padding:9px 18px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;min-height:44px}
+  .fragen .lbl{margin-top:3px;flex:0 0 auto}
+  .q{border:1px solid var(--line);border-radius:3px;padding:5px 10px;font-size:12px;
+    display:flex;align-items:center;gap:9px;max-width:520px}
+  .q.blocking{border-color:var(--eye-dim);background:#1a1712}
+  .q .t{flex:1;min-width:0}
+  .q .k{font-family:var(--mono);font-size:9px;color:var(--faint);text-transform:uppercase}
+  .q.blocking .k{color:var(--eye)}
+  .fragen .empty-q{color:var(--faint);font-size:11.5px;margin-top:3px}
+
+  /* Plan-Vorschau */
+  .plan{border:1px solid var(--line-2);border-radius:3px;padding:0;margin-bottom:22px;background:#111218}
+  .plan .ph{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;
+    justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .plan .pb{padding:12px 14px}
+  .plan .row{display:flex;gap:9px;align-items:flex-start;padding:5px 0;font-size:12.5px}
+  .plan .row label{cursor:pointer;display:flex;gap:9px;align-items:flex-start;flex:1}
+  .plan .row .cap{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:1px}
+  .plan .costs{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px;
+    border-top:1px solid var(--line);padding-top:9px;line-height:1.7}
+  .plan .forbid{color:var(--bad);font-family:var(--mono);font-size:10.5px}
+
+  /* Werkstattbericht (Routing nur auf Verlangen / bei Relevanz) */
+  .report{border:1px solid var(--line);border-radius:3px;margin:0 0 22px;background:#111218}
+  .report .rh{padding:8px 12px;display:flex;justify-content:space-between;align-items:center;
+    cursor:pointer;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .report .rb{padding:0 12px 11px;font-family:var(--mono);font-size:10.5px;color:var(--muted);
+    line-height:1.85;white-space:pre-wrap;border-top:1px solid var(--line)}
+  .report .rb .fb{color:var(--eye)}
+
+  /* Gedächtnis */
+  .mem{margin-top:16px;border-top:1px solid var(--line);padding-top:11px}
+  .mem-e{border:1px solid var(--line);border-radius:3px;padding:6px 8px;margin-bottom:6px}
+  .mem-e .k{font-family:var(--mono);font-size:10.5px}
+  .mem-e .v{color:var(--muted);font-size:11.5px;margin:2px 0 5px}
+  .mem-e .src{color:var(--faint);font-family:var(--mono);font-size:9px}
+  .mem-e .acts{display:flex;gap:6px;margin-top:6px}
+  .mem-e button{padding:1px 7px;font-size:10.5px}
+
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none!important;transition:none!important}
+  }
+  @media (max-width:1100px){
+    .room{grid-template-columns:1fr;grid-template-rows:auto auto minmax(0,1fr) auto auto;
+      grid-template-areas:"voice" "wall" "bench" "ablage" "fragen"}
+    .wall{border-right:0;border-bottom:1px solid var(--line);max-height:190px}
+    .ablage{border-left:0;border-top:1px solid var(--line);max-height:160px}
+    .bench{padding:18px}
+  }
+</style>
+</head>
+<body>
+
+<div class="room">
+  <!-- Stimme -->
+  <div class="voice" id="voice">
+    <span class="dot" aria-hidden="true"></span>
+    <span class="txt" id="voice-txt"><b>Bereit.</b> Material liegt an der Wand. Kein Arbeitsstück offen.</span>
+    <button class="ghost" id="btn-report" style="margin-left:auto">Werkstattbericht</button>
+    <button class="ghost" id="btn-mem">Gedächtnis</button>
+  </div>
+
+  <!-- Materialwand -->
+  <aside class="wall" id="wall">
+    <h2>Materialwand</h2>
+    <div id="wall-list"></div>
+    <div class="lbl" style="margin-top:10px;color:var(--faint);line-height:1.6">
+      Ziehen oder klicken → an die Werkbank.
+    </div>
+  </aside>
+
+  <!-- Werkbank -->
+  <main class="bench" id="bench"><div class="bench-inner" id="bench-inner"></div></main>
+
+  <!-- Ablage -->
+  <aside class="ablage">
+    <h2>Ablage</h2>
+    <div id="ver-list"></div>
+    <div class="lbl" style="margin-top:10px;color:var(--faint);line-height:1.6">Übergabe</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+      <button class="ghost" id="btn-export" disabled>Export</button>
+      <button class="ghost" id="btn-handoff" disabled>Werkbrief</button>
+    </div>
+    <div id="mem-box"></div>
+  </aside>
+
+  <!-- Fragenleiste -->
+  <footer class="fragen" id="fragen">
+    <span class="lbl">Fragen</span>
+    <div id="q-list" style="display:flex;gap:10px;flex-wrap:wrap;flex:1">
+      <span class="empty-q">Keine offenen Fragen.</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* =====================================================================
+   Omnia Atelier · Prototyp Phase 3
+   Simulierte Ereignisse (MockAdapter). Kein Netz. Keine Secrets.
+   Zustandsmaschine: leer · vorbereitet · laufend · wartet_auf_nutzereingabe ·
+   erfolgreich · erfolgreich_mit_einschränkung · fallback_aktiv ·
+   fehlgeschlagen · abgebrochen · wiederaufnehmbar · archiviert
+   ===================================================================== */
+
+const MATERIAL = [
+  {id:'m1', kind:'repo_file', name:'schaltwerk/server.py',        bytes:57318, hash:'9f2c41ab', read:'ungelesen'},
+  {id:'m2', kind:'repo_file', name:'schaltwerk/DOKUMENTATION.md', bytes:16066, hash:'4d0e77c3', read:'ungelesen'},
+  {id:'m3', kind:'repo_file', name:'schaltwerk/tests/test_server.py', bytes:10783, hash:'b71fa902', read:'ungelesen'},
+  {id:'m4', kind:'repo_file', name:'schaltwerk/CHANGELOG.md',     bytes:9975,  hash:'2c9ab514', read:'ungelesen'},
+  {id:'m5', kind:'repo_file', name:'schaltwerk/WEITERARBEITEN.txt', bytes:22163, hash:'ee1047d8', read:'ungelesen'},
+  {id:'m6', kind:'note',      name:'Notiz: Proxy-Logistik ist nicht Orchestrierung', bytes:412, hash:'a3c2f1d0', read:'ungelesen'},
+];
+
+const EV = {
+  belegt:{c:'belegt', s:'●', t:'belegt'},
+  teilweise:{c:'teilweise', s:'◐', t:'teilweise belegt'},
+  offen:{c:'offen', s:'?', t:'offen'},
+  widersprochen:{c:'widersprochen', s:'✗', t:'widersprochen'},
+  unbelegbar:{c:'unbelegbar', s:'╱', t:'unbelegbar'},
+};
+
+const state = {
+  bench: [],                 // Material-IDs an der Werkbank
+  intent: '',
+  plan: null,                // {sections:[{id,title,on,cap}], forbid:Set, estimate}
+  run: {status:'empty', step:0, active:[], aborted:false, awaiting:null, budget:0},
+  sections: [],              // {id,title,text,ev,cites,edited,fallback,fresh}
+  questions: [],             // {id,text,blocking}
+  versions: [],              // {v,status,note}
+  version: 0,
+  reportOpen: false,
+  report: [],
+  memory: [
+    {k:'ausgabeformat', v:'Arbeitsstück mit Belegstatus, keine Prosa ohne Quellen', src:'gesetzt von dir · 2026-09-30'},
+    {k:'budget_pro_lauf', v:'max. 60.000 Tokens, Warnung bei 80 %', src:'gesetzt von dir · 2026-10-01'},
+  ],
+  memOpen: false,
+};
+
+/* ---------- kleine Helfer ---------- */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtBytes = b => b < 1024 ? b + ' B' : (b/1024).toFixed(1) + ' KB';
+
+function say(t, speak=true){
+  $('#voice-txt').innerHTML = '<b>' + (speak ? 'Leitassistenz:' : '') + '</b> ' + t;
+  $('#voice').classList.toggle('speaking', !!speak);
+}
+function log(line, isFallback){
+  state.report.push((isFallback ? '↯ ' : '· ') + line);
+}
+
+/* ---------- Render: Materialwand ---------- */
+function renderWall(){
+  $('#wall-list').innerHTML = MATERIAL.map(m => {
+    const on = state.bench.includes(m.id);
+    return `<div class="mat ${on?'on-bench':''}" id="mat-${m.id}" draggable="true" data-id="${m.id}"
+              role="button" tabindex="0" aria-label="Material ${esc(m.name)}${on ? ', an der Werkbank' : ''}">
+      <div class="n">${esc(m.name.split('/').pop())}</div>
+      <div class="m">${esc(m.kind)} · ${fmtBytes(m.bytes)} · ${esc(m.hash)}</div>
+      <div class="m" style="color:${on?'var(--eye-dim)':'var(--faint)'}">${on ? 'an der Werkbank' : 'an der Wand'}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- Render: Werkbank ---------- */
+function renderBench(){
+  const el = $('#bench-inner');
+  if(state.run.status === 'empty'){
+    el.innerHTML = `<div class="empty">
+        <div class="big">Die Werkbank ist leer.</div>
+        Lege Material an oder formuliere, was entstehen soll.<br><br>
+        <div class="mono" style="color:var(--faint)">Material an der Werkbank: ${state.bench.length}</div>
+      </div>
+      ${state.bench.length ? intentBox() : ''}`;
+    bindIntent(); return;
+  }
+  if(state.run.status === 'prepared'){ el.innerHTML = renderPlan(); bindPlan(); return; }
+
+  const running = ['running','waiting_for_user','fallback_active'].includes(state.run.status);
+  el.innerHTML = `
+    <h1 class="wp-title">${esc(state.intent || 'Arbeitsstück')}</h1>
+    <div class="wp-meta">
+      <span class="tag">v${state.version || ' Entwurf'}</span>
+      <span class="tag">${esc(state.run.status)}</span>
+      Material: ${state.bench.length} · Budget: ${state.run.budget} Tokens verbraucht
+    </div>
+    ${renderTrack()}
+    ${renderReport()}
+    ${state.sections.map(renderSection).join('')}
+    ${running ? runControls() : ''}
+    ${state.run.status==='aborted' ? abortedBox() : ''}
+    ${['succeeded','succeeded_with_limits'].includes(state.run.status) ? doneBox() : ''}
+    ${state.run.status==='failed' ? failedBox() : ''}
+  `;
+  bindBench();
+}
+
+function intentBox(){
+  return `<div style="margin-top:26px;max-width:620px">
+    <div class="lbl" style="margin-bottom:6px">Arbeitsabsicht</div>
+    <textarea id="intent" rows="2" placeholder="Was soll entstehen?" style="width:100%;background:var(--panel-2);
+      border:1px solid var(--line-2);border-radius:3px;color:var(--ink);font-family:var(--serif);
+      font-size:15px;padding:10px 12px;resize:vertical">${esc(state.intent)}</textarea>
+    <div style="margin-top:9px;display:flex;gap:8px;align-items:center">
+      <button class="primary" id="btn-plan">Arbeitsplan vorschlagen</button>
+      <span class="mono" style="color:var(--faint)">Ohne Material läuft nichts.</span>
+    </div></div>`;
+}
+
+function renderPlan(){
+  const p = state.plan;
+  return `<h1 class="wp-title">${esc(state.intent)}</h1>
+    <div class="wp-meta"><span class="tag">Arbeitsplan</span> Vorschlag der Leitassistenz — korrigierbar</div>
+    <div class="plan">
+      <div class="ph">
+        <span class="lbl">Abschnitte &amp; Fähigkeiten</span>
+        <span class="mono" style="color:var(--faint)">Material: ${state.bench.length}</span>
+      </div>
+      <div class="pb">
+        ${p.sections.map(s => `<div class="row">
+          <input type="checkbox" id="sec-${s.id}" data-sec="${s.id}" ${s.on?'checked':''}>
+          <label for="sec-${s.id}"><span>${esc(s.title)}</span>
+            <span class="cap">${esc(s.cap)}</span></label>
+        </div>`).join('')}
+        <div class="row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px">
+          <input type="checkbox" id="forbid" ${p.forbid?'checked':''}>
+          <label for="forbid"><span>Fähigkeit „Risikoprüfer“ verbieten</span>
+            <span class="cap">Verbot ist eine Nutzerentscheidung — kein stiller Ersatz</span></label>
+        </div>
+        <div class="costs">
+          Geschätzt: ~48.000 Tokens · 2 Fähigkeiten, davon 1 parallel · Zielklasse: hoch<br>
+          Grenze: 60.000 Tokens · Warnung bei 80 %
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="primary" id="btn-start">Lauf starten</button>
+      <button class="ghost" id="btn-back">Zurück zur Materialauswahl</button>
+    </div>`;
+}
+
+function renderTrack(){
+  if(!state.run.active.length) return '';
+  return `<div class="track" aria-label="Werkzeugspur">
+    ${state.run.active.map(t => `<span class="slot ${t.state}">
+      ${esc(t.name)}${t.state==='fallback'?' · Fallback':''}
+      <span class="bar"><i style="width:${t.state==='done'?100:t.progress||0}%"></i></span>
+    </span>`).join('')}</div>`;
+}
+
+function renderReport(){
+  if(!state.report.length) return '';
+  return `<div class="report">
+    <div class="rh" id="report-head"><span>Werkstattbericht · Routing &amp; Ereignisse</span>
+      <span>${state.reportOpen ? '▾' : '▸'}</span></div>
+    ${state.reportOpen ? `<div class="rb">${
+      state.report.map(l => l.startsWith('↯') ? `<span class="fb">${esc(l)}</span>` : esc(l)).join('\n')
+    }</div>` : ''}</div>`;
+}
+
+function renderSection(s){
+  const e = EV[s.ev];
+  return `<section class="sec ${s.fresh?'fresh':''}" id="sec-${s.id}">
+    <h3>${esc(s.title)}
+      <span class="ev ${e.c}"><span aria-hidden="true">${e.s}</span> ${e.t}</span>
+      ${s.edited ? '<span class="edit-hint">von dir bearbeitet — Belegstatus zurückgesetzt</span>' : ''}
+    </h3>
+    <div class="body" contenteditable="true" data-sec="${s.id}">${s.text}</div>
+    ${s.cites.length ? `<div class="cites">${s.cites.map(c =>
+        `<span class="cite" data-mat="${c.m}" role="button" tabindex="0">${esc(c.label)}</span>`).join('')}</div>` : ''}
+    ${s.fallback ? `<div class="fallback">
+        <div class="h">Fallback aktiv</div>
+        ${esc(s.fallback.text)}
+        <div class="impact">Auswirkung: ${esc(s.fallback.impact)}</div>
+        <div class="acts"><button class="ghost" data-retry="${s.id}">Mit Zielklasse erneut versuchen</button>
+        <button class="ghost" data-accept="${s.id}">Akzeptieren</button></div>
+      </div>` : ''}
+  </section>`;
+}
+
+function runControls(){
+  const st = state.run.status;
+  if(st === 'waiting_for_user'){
+    return `<div style="border:1px solid var(--eye-dim);background:#1a1712;border-radius:3px;
+      padding:12px 14px;margin-top:6px">
+      <div class="lbl" style="color:var(--eye);margin-bottom:6px">Wartet auf dich</div>
+      <div style="font-size:13px;margin-bottom:10px">${esc(state.run.awaiting)}</div>
+      <div style="display:flex;gap:8px">
+        <button class="primary" id="btn-answer">Antworten und weiterarbeiten</button>
+        <button class="ghost" id="btn-abort">Abbrechen</button>
+      </div>
+    </div>`;
+  }
+  return `<div style="display:flex;gap:8px;margin-top:6px">
+    <button class="ghost" id="btn-abort">Abbrechen</button>
+    <button class="ghost" id="btn-force-fail">Fehler auslösen (AUTH_INVALID)</button>
+  </div>
+  <div class="mono" style="color:var(--faint);margin-top:7px">
+    Der Fallback ist im Ablauf fest eingeplant — er erscheint, ohne dass du ihn auslöst.
+  </div>`;
+}
+
+function abortedBox(){
+  return `<div style="border:1px solid var(--line-2);border-radius:3px;padding:12px 14px;margin-top:8px">
+    <div class="lbl" style="margin-bottom:6px">Abgebrochen · wiederaufnehmbar</div>
+    <div style="font-size:13px;margin-bottom:10px">Stand gesichert: ${state.sections.length} Abschnitte,
+      ${state.run.budget} Tokens verbraucht. Nichts ging verloren.</div>
+    <button class="primary" id="btn-resume">Weiterarbeiten</button></div>`;
+}
+
+function doneBox(){
+  const limited = state.run.status === 'succeeded_with_limits';
+  const blocking = state.questions.some(q => q.blocking);
+  return `<div style="border:1px solid ${limited?'var(--eye-dim)':'var(--line-2)'};border-radius:3px;
+      padding:12px 14px;margin-top:8px;background:${limited?'#1a1712':'transparent'}">
+    <div class="lbl" style="margin-bottom:6px">${limited ? 'Erfolgreich mit Einschränkung' : 'Erfolgreich'}</div>
+    <div style="font-size:13px;line-height:1.6">${limited
+      ? 'Ein Abschnitt wurde unterhalb der Zielklasse erzeugt. Der Vermerk steht dauerhaft in dieser Version.'
+      : 'Alle Abschnitte in Zielklasse erzeugt.'}
+      ${blocking ? '<br><span style="color:var(--eye)">Eine blockierende Frage ist offen — Freigabe gesperrt.</span>' : ''}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="primary" id="btn-version" ${blocking?'disabled':''}>Version freigeben</button>
+      <button class="ghost" id="btn-new">Neues Arbeitsstück</button>
+    </div></div>`;
+}
+
+function failedBox(){
+  return `<div style="border:1px solid var(--bad);border-radius:3px;padding:12px 14px;margin-top:8px">
+    <div class="lbl" style="color:var(--bad);margin-bottom:6px">Fehlgeschlagen · AUTH_INVALID</div>
+    <div style="font-size:13px;margin-bottom:10px">Kein gültiger Schlüssel für die Fähigkeit.
+      Kein Fallback — das ist eine Konfigurationsfrage, keine Modellfrage.</div>
+    <button class="ghost" id="btn-retry-run">Erneut versuchen</button></div>`;
+}
+
+/* ---------- Render: Ablage & Fragen ---------- */
+function renderSide(){
+  $('#ver-list').innerHTML = state.versions.length
+    ? state.versions.map(v => `<div class="ver ${v.cur?'cur':''}">
+        <div class="v">v${v.v}</div><div class="s">${esc(v.status)}</div></div>`).join('')
+    : '<div class="mono" style="color:var(--faint)">Noch keine Version.</div>';
+
+  const qs = state.questions.slice().sort((a,b) => (b.blocking?1:0)-(a.blocking?1:0));
+  $('#q-list').innerHTML = qs.length ? qs.map(q => `<div class="q ${q.blocking?'blocking':''}">
+      <span class="k">${q.blocking ? 'blockiert' : 'notiert'}</span>
+      <span class="t">${esc(q.text)}</span></div>`).join('')
+    : '<span class="empty-q">Keine offenen Fragen.</span>';
+
+  $('#btn-export').disabled = state.versions.length === 0;
+  $('#btn-handoff').disabled = state.versions.length === 0;
+
+  $('#mem-box').innerHTML = state.memOpen ? `<div class="mem">
+      <div class="lbl" style="margin-bottom:8px">Gedächtnis · Arbeitsraum</div>
+      ${state.memory.length ? state.memory.map((m,i) => `<div class="mem-e">
+        <div class="k">${esc(m.k)}</div><div class="v">${esc(m.v)}</div>
+        <div class="src">${esc(m.src)}</div>
+        <div class="acts"><button class="ghost" data-memedit="${i}">Korrigieren</button>
+        <button class="ghost" data-memdel="${i}">Löschen</button></div></div>`).join('')
+        : '<div class="mono" style="color:var(--faint)">Leer. Standard ist: nichts merken.</div>'}
+      <button class="ghost" data-memadd="1" style="margin-top:4px">Eintrag hinzufügen</button>
+      <button class="ghost" data-memclear="1" style="margin-top:6px">Alles vergessen</button>
+    </div>` : '';
+}
+
+function render(){ renderWall(); renderBench(); renderSide(); }
+
+/* ---------- Bindungen ---------- */
+function bindWall(){
+  document.querySelectorAll('.mat').forEach(el => {
+    const id = el.dataset.id;
+    el.addEventListener('click', () => toggleBench(id));
+    el.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleBench(id);} });
+    el.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', id));
+  });
+  const bench = $('#bench');
+  bench.addEventListener('dragover', e => { e.preventDefault(); bench.style.background='#15161c'; });
+  bench.addEventListener('dragleave', () => bench.style.background='');
+  bench.addEventListener('drop', e => {
+    e.preventDefault(); bench.style.background='';
+    const id = e.dataTransfer.getData('text/plain');
+    if(id && !state.bench.includes(id)) toggleBench(id);
+  });
+}
+function toggleBench(id){
+  const i = state.bench.indexOf(id);
+  if(i >= 0){ state.bench.splice(i,1); }
+  else {
+    state.bench.push(id);
+    const m = MATERIAL.find(x => x.id === id);
+    m.read = 'gelesen';
+    say(`<b>${esc(m.name.split('/').pop())}</b> liegt an der Werkbank · ${fmtBytes(m.bytes)} · ${esc(m.hash)}`, false);
+  }
+  render(); bindWall();
+}
+
+function bindIntent(){
+  const ta = $('#intent'); if(!ta) return;
+  ta.addEventListener('input', e => { state.intent = e.target.value; });
+  const b = $('#btn-plan');
+  b.addEventListener('click', () => {
+    if(!state.intent.trim()){ say('Ohne Absicht kein Arbeitsplan. Formuliere zuerst, was entstehen soll.'); return; }
+    state.plan = {
+      sections:[
+        {id:'s1', title:'Kernaussage',              cap:'Synthese · hoch', on:true},
+        {id:'s2', title:'Bestand und Eignung',      cap:'Strukturleser · mittel', on:true},
+        {id:'s3', title:'Risiken und Gegenargumente', cap:'Risikoprüfer · hoch', on:true},
+        {id:'s4', title:'Empfehlung mit Auflagen',  cap:'Synthese · hoch', on:true},
+      ],
+      forbid:false,
+    };
+    state.run.status = 'prepared';
+    say('Arbeitsplan steht. Vier Abschnitte, zwei Fähigkeiten, eine Vorfrage. Korrigiere, bevor es läuft.');
+    render();
+  });
+}
+
+function bindPlan(){
+  document.querySelectorAll('[data-sec]').forEach(cb => cb.addEventListener('change', e => {
+    const s = state.plan.sections.find(x => x.id === e.target.dataset.sec);
+    s.on = e.target.checked;
+  }));
+  const f = $('#forbid');
+  if(f) f.addEventListener('change', e => { state.plan.forbid = e.target.checked; });
+  $('#btn-start').addEventListener('click', () => { state.run.status='running'; state.version=0; startRun(); });
+  $('#btn-back').addEventListener('click', () => { state.run.status='empty'; render(); bindWall(); });
+}
+
+function bindBench(){
+  // Bearbeitung am Objekt — Eingriff setzt den Belegstatus zurück
+  document.querySelectorAll('.sec .body').forEach(el => {
+    el.addEventListener('input', e => {
+      const s = state.sections.find(x => x.id === e.target.dataset.sec);
+      if(s && !s.edited){
+        s.edited = true; s.ev = 'offen';
+        say('Abschnitt von dir bearbeitet — Belegstatus auf <b>offen</b> zurückgesetzt. Neu prüfen, wenn du willst.');
+        renderBench(); bindBench();
+      }
+    });
+  });
+  // Quellenprüfung: Klick führt zur Materialstelle
+  document.querySelectorAll('.cite').forEach(el => {
+    const go = () => {
+      const id = el.dataset.mat;
+      document.querySelectorAll('.mat').forEach(m => m.classList.remove('hl'));
+      const m = document.getElementById('mat-' + id);
+      if(m){ m.classList.add('hl'); m.scrollIntoView({block:'nearest'});
+        setTimeout(() => m.classList.remove('hl'), 2200); }
+    };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', e => { if(e.key==='Enter') go(); });
+  });
+  const rh = $('#report-head');
+  if(rh) rh.addEventListener('click', () => { state.reportOpen = !state.reportOpen; renderBench(); bindBench(); });
+
+  const abort = $('#btn-abort'); if(abort) abort.addEventListener('click', doAbort);
+  const ff = $('#btn-force-fail'); if(ff) ff.addEventListener('click', () => { state.forceFail = true; });
+  const ans = $('#btn-answer'); if(ans) ans.addEventListener('click', () => {
+    state.questions = state.questions.filter(q => !q.blocking);
+    state.answerResolve && state.answerResolve();
+  });
+  const resume = $('#btn-resume'); if(resume) resume.addEventListener('click', () => {
+    state.run.status='running'; state.run.aborted=false;
+    say('Nehme die Arbeit wieder auf — fertige Abschnitte bleiben unangetastet.');
+    startRun(true);
+  });
+  const ver = $('#btn-version'); if(ver) ver.addEventListener('click', () => {
+    state.version++;
+    const limited = state.run.status === 'succeeded_with_limits';
+    state.versions.forEach(v => v.cur = false);
+    state.versions.push({v:state.version, status: limited ? 'geprüft · mit Einschränkung' : 'geprüft', cur:true});
+    say(`Version ${state.version} freigegeben${limited ? ' — der Qualitätsvermerk bleibt in dieser Version stehen.' : '.'}`);
+    render(); bindWall();
+  });
+  const nw = $('#btn-new'); if(nw) nw.addEventListener('click', reset);
+  const rr = $('#btn-retry-run'); if(rr) rr.addEventListener('click', () => {
+    state.run.status='running'; state.run.step=0; state.forceFail=false; startRun();
+  });
+  document.querySelectorAll('[data-retry]').forEach(b => b.addEventListener('click', () => {
+    const s = state.sections.find(x => x.id === b.dataset.retry);
+    s.fallback = null; s.ev = 'belegt'; s.text = s.text + ' <span style="color:var(--muted)">(neu erzeugt, Zielklasse)</span>';
+    log('retry: Risikoprüfer in Zielklasse — erfolgreich');
+    say('Erneuter Versuch in Zielklasse erfolgreich. Der Vermerk bleibt in der Version sichtbar.');
+    renderBench(); bindBench();
+  }));
+  document.querySelectorAll('[data-accept]').forEach(b => b.addEventListener('click', () => {
+    const s = state.sections.find(x => x.id === b.dataset.accept);
+    s.fallback = {...s.fallback, accepted:true};
+    say('Fallback akzeptiert. Der Abschnitt bleibt unterhalb der Zielklasse — das steht in der Version.');
+    renderBench(); bindBench();
+  }));
+}
+
+function bindTop(){
+  $('#btn-report').addEventListener('click', () => { state.reportOpen = !state.reportOpen; renderBench(); bindBench(); });
+  $('#btn-mem').addEventListener('click', () => { state.memOpen = !state.memOpen; renderSide(); bindMem(); });
+  $('#btn-export').addEventListener('click', () => {
+    say('Export braucht deine Bestätigung — hier würde ein Diff stehen, keine stillschweigende Datei.');
+  });
+  $('#btn-handoff').addEventListener('click', () => {
+    say('Werkbrief: ein Dokument, das ein anderer ohne Rückfrage ausführen kann. Erzeugung bestätigungspflichtig.');
+  });
+}
+function bindMem(){
+  document.querySelectorAll('[data-memdel]').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.memdel; const k = state.memory[i].k;
+    state.memory.splice(i,1); log('gedächtnis: Eintrag gelöscht (' + k + ')');
+    say('Eintrag gelöscht — hart, ohne Wiederherstellen, und im Audit vermerkt.');
+    renderSide(); bindMem();
+  }));
+  document.querySelectorAll('[data-memedit]').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.memedit; const nv = prompt('Neuer Wert:', state.memory[i].v);
+    if(nv !== null){ state.memory[i].v = nv; state.memory[i].src = 'geändert von dir · 2026-10-02';
+      log('gedächtnis: Eintrag korrigiert (' + state.memory[i].k + ')'); renderSide(); bindMem(); }
+  }));
+  const add = document.querySelector('[data-memadd]');
+  if(add) add.addEventListener('click', () => {
+    const k = prompt('Schlüssel (nur Kleinbuchstaben und Unterstrich):');
+    if(!k) return;
+    if(!/^[a-z_]+$/.test(k)){ say('Schlüssel ungültig. Erlaubt sind nur Kleinbuchstaben und Unterstriche.'); return; }
+    const v = prompt('Wert:'); if(!v) return;
+    state.memory.push({k, v, src:'gesetzt von dir · 2026-10-02'});
+    log('gedächtnis: Eintrag angelegt (' + k + ')'); renderSide(); bindMem();
+  });
+  const clr = document.querySelector('[data-memclear]');
+  if(clr) clr.addEventListener('click', () => {
+    if(confirm('Alle Gedächtnis-Einträge dieses Arbeitsraums löschen? Das ist endgültig.')){
+      log('gedächtnis: Alles vergessen (' + state.memory.length + ' Einträge)');
+      state.memory = []; say('Gedächtnis geleert. Der Arbeitsraum beginnt ohne Erinnerung.');
+      renderSide(); bindMem();
+    }
+  });
+}
+
+/* ---------- Der simulierte Lauf (MockAdapter) ---------- */
+const STEPS = [
+  async () => {
+    state.run.active = [{name:'Strukturleser', state:'active', progress:10},
+                        {name:'Risikoprüfer', state:'active', progress:0}];
+    log('run gestartet · 2 Fähigkeiten · Zielklasse hoch');
+    say('Lauf gestartet. Strukturleser und Risikoprüfer arbeiten parallel.');
+  },
+  async () => {
+    bump('Strukturleser', 55);
+    add('s2', 'Bestand und Eignung',
+      'Schaltwerk ist kein Orchestrierungssystem, sondern Proxy-Logistik: 21 Routen, ein asyncio-Scheduler, ' +
+      'ein Watcher-Loop und ein RAM-Ringpuffer. Technisch wertvoll sind die Laufzeitmuster — Job-Phasen, ' +
+      '409-Doppelstartsperre, SSE-Übertragung, Risiko-Ausschluss vor dem Schreiben — nicht die Domäne.',
+      'belegt', [{m:'m1', label:'server.py · 21 Routen'}, {m:'m2', label:'DOKUMENTATION.md §3'}]);
+  },
+  async () => {
+    bump('Strukturleser', 100); done('Strukturleser');
+    add('s1', 'Kernaussage',
+      'Als Hintergrundorchestrierung taugt Schaltwerk nicht — seine Laufzeitmuster dagegen schon. ' +
+      'Übernommen werden Job-Phasen, Sperren, SSE und Risikoausschluss; nicht übernommen werden Proxy-Domäne, ' +
+      'RAM-only-Zustand und Windows-Fokus.',
+      'belegt', [{m:'m2', label:'DOKUMENTATION.md §8'}, {m:'m5', label:'WEITERARBEITEN.txt'}]);
+  },
+  async () => {
+    bump('Risikoprüfer', 40);
+    state.questions.push({id:'q1', text:'Ist Port 24615 dauerhaft oder wechselt die Instanz?', blocking:true});
+    state.questions.push({id:'q2', text:'Soll der RAM-only-Grundsatz für Secrets bleiben?', blocking:false});
+    log('frage: q1 blockierend (Material unvollständig)');
+    if(state.forceFallback || true){
+      state.run.active = state.run.active.map(t => t.name==='Risikoprüfer'
+        ? {...t, state:'fallback', progress:40} : t);
+      state.run.status = 'fallback_active';
+      log('routing.fallback: Risikoprüfer UNAVAILABLE → Ersatz, Klasse hoch → mittel', true);
+      say('Risikoprüfer nicht verfügbar. Ersatz läuft — <b>unterhalb der Zielklasse</b>. Ich melde die Auswirkung am Abschnitt, nicht im Log.');
+    }
+  },
+  async () => {
+    add('s3', 'Risiken und Gegenargumente',
+      'Drei Risiken tragen: der Zustand liegt ausschließlich im RAM (keine Wiederaufnahme nach Absturz), ' +
+      'die Umgebung ist Windows-zentriert, und es gibt keine Autorisierung. Ein vierter Punkt bleibt offen, ' +
+      'weil die Instanzfrage unbeantwortet ist.',
+      'teilweise', [{m:'m3', label:'tests/test_server.py · 34 Tests'}, {m:'m4', label:'CHANGELOG.md'}]);
+    state.sections.find(s => s.id==='s3').fallback = {
+      text:'Fähigkeit „Risikoprüfer“ war nicht verfügbar (UNAVAILABLE). Übernommen von einem Ersatzmodell der Klasse „mittel“.',
+      impact:'Die Risikoliste ist kürzer und weniger begründet als in der Zielklasse üblich.'
+    };
+  },
+  async () => {
+    await new Promise(r => { state.answerResolve = r; });   // ← wartet auf Nutzereingabe
+    state.run.awaiting = null; state.answerResolve = null;
+    log('nutzer: blockierende Frage beantwortet');
+    say('Danke. Ich arbeite weiter — fertige Abschnitte bleiben, wie sie sind.');
+    state.run.status = 'running';
+  },
+  async () => {
+    bump('Risikoprüfer', 100); done('Risikoprüfer');
+    add('s4', 'Empfehlung mit Auflagen',
+      'Erhalt als Referenz, nicht als Basis. Drei Auflagen: Zustand persistieren (Arbeitsstücke müssen ' +
+      'wiederbetretbar sein), Plattformneutralität herstellen, Schreibzugriffe hinter Bestätigung legen. ' +
+      'Die Proxy-Domäne bleibt in Schaltwerk und wird nicht angefasst.',
+      'belegt', [{m:'m2', label:'DOKUMENTATION.md §7'}, {m:'m6', label:'Notiz: Proxy ≠ Orchestrierung'}]);
+    state.sections.find(s => s.id==='s4').cites.push({m:'m1', label:'server.py · probe_one'});
+  },
+  async () => {
+    if(state.forceFail){
+      state.run.status = 'failed';
+      log('fehler: AUTH_INVALID — kein Fallback', true);
+      say('Fehlgeschlagen: <b>AUTH_INVALID</b>. Kein Fallback — das ist eine Konfigurationsfrage, keine Modellfrage.');
+      return true;
+    }
+    state.run.status = 'succeeded_with_limits';
+    state.run.budget = 51240;
+    log('run beendet · status=succeeded_with_limits · 51.240 Tokens · 1 Fallback');
+    say('Fertig — <b>mit Einschränkung</b>. Ein Abschnitt liegt unter der Zielklasse; der Vermerk bleibt in dieser Version stehen.');
+  },
+  async () => { state.sections.forEach(s => s.fresh = false); },
+];
+
+function bump(name, p){ const t = state.run.active.find(x => x.name===name); if(t && t.state!=='done') t.progress = p; }
+function done(name){ const t = state.run.active.find(x => x.name===name); if(t){ t.state='done'; t.progress=100; } }
+function add(id, title, text, ev, cites){
+  state.sections.forEach(s => s.fresh = false);
+  state.sections.push({id, title, text, ev, cites, edited:false, fallback:null, fresh:true});
+  state.sections.sort((a,b) => ['s1','s2','s3','s4'].indexOf(a.id) - ['s1','s2','s3','s4'].indexOf(b.id));
+  log('section.draft: ' + id + ' · belegstatus=' + ev);
+}
+
+async function startRun(resume=false){
+  render(); bindWall(); bindBench();
+  for(let i = state.run.step; i < STEPS.length; i++){
+    await sleep(1150);
+    if(state.run.aborted) return;
+    if(state.run.status === 'failed'){ render(); bindBench(); return; }
+
+    // Zustand: wartet auf Nutzereingabe
+    if(i === 5){
+      state.run.status = 'waiting_for_user';
+      state.run.awaiting = 'Ist der OmniRoute-Port 24615 dauerhaft, oder wechselt die Instanz? ' +
+        'Ohne diese Angabe bleibt die Instanzfrage unbelegbar.';
+      state.run.step = i;
+      render(); bindBench();
+      say('Ich frage, statt zu raten: eine Angabe fehlt, und sie blockiert die Freigabe.');
+    }
+
+    const stop = await STEPS[i]();
+    state.run.step = i + 1;
+    state.run.budget = Math.min(60000, state.run.budget + 5124);
+    if(state.run.budget >= 48000 && state.run.budget < 60000 && i === 3) log('budget.warning: 80 % erreicht');
+    render(); bindBench(); bindWall();
+    if(stop) return;
+  }
+}
+
+function doAbort(){
+  state.run.aborted = true;
+  state.run.status = 'aborted';
+  if(state.answerResolve){ const r = state.answerResolve; state.answerResolve = null; r(); }
+  log('run abgebrochen · stand gesichert · wiederaufnehmbar');
+  say('Abgebrochen. ' + state.sections.length + ' Abschnitte sind gesichert — die Arbeit ist nicht verloren.');
+  render(); bindBench();
+}
+
+function reset(){
+  Object.assign(state, {
+    bench:[], intent:'', plan:null,
+    run:{status:'empty', step:0, active:[], aborted:false, awaiting:null, budget:0},
+    sections:[], questions:[], versions:[], version:0, report:[], forceFallback:false, forceFail:false,
+  });
+  MATERIAL.forEach(m => m.read = 'ungelesen');
+  say('Neuer Arbeitsraum. Material liegt wieder an der Wand.');
+  render(); bindWall();
+}
+
+/* ---------- Start ---------- */
+render(); bindWall(); bindTop(); bindMem();
+</script>
+</body>
+</html>
