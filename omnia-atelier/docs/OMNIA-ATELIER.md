@@ -3,6 +3,8 @@
 **Stand:** 2026-10-02 · **Repository:** `TukTuck/omniauto` · **Basis-Commit:** `60dd9040afe117e729fc5ac6dc59f434a9833730` ("Add files via upload")
 **Zweig dieser Arbeit:** `arena/01a0fe6e-omniauto`
 
+> **Ordner-Konvention (gilt für alle Zweige).** Jede Arbeit an diesem Repository liegt in **ihrem eigenen Ordner** auf der Wurzelebene. Dieser Zweig baut ausschließlich innerhalb von **`omnia-atelier/`**. Andere Zweige legen ihren eigenen Ordner daneben und berühren weder `omnia-atelier/` noch `schaltwerk/`. Gemeinsame Orte (Wurzel, `schaltwerk/`, die beiden ZIP-Archive) werden von keinem Zweig verändert. Alle Pfade in diesem Dokument sind **ab Repository-Wurzel** angegeben.
+
 ---
 
 ## 0. Methodik und Kennzeichnung
@@ -1574,7 +1576,7 @@ Schritt 3 · Streaming, Fehler, Fallback, Events
 | Frontend/UI | — | **Nicht übernehmen** (Aufgabe verbietet es) |
 | Mongo/Mongoose-Schemas | — | **Nicht übernehmen** |
 
-**Wie UI- und Datenmodellkopplung vermieden wird:** LibreChat wird **nie als Abhängigkeit eingebunden**, sondern als **Lesequelle**. Es gibt keine Imports, keine gemeinsame Datenbank, keine gemeinsamen Typen. Übernommen werden **Ideen, Feldnamen und Reihenfolgen** — dokumentiert in einem Reuse-Protokoll (`docs/REUSE.md`), damit die Herkunft nachvollziehbar bleibt (MPL-/MIT-Kontext sauber getrennt).
+**Wie UI- und Datenmodellkopplung vermieden wird:** LibreChat wird **nie als Abhängigkeit eingebunden**, sondern als **Lesequelle**. Es gibt keine Imports, keine gemeinsame Datenbank, keine gemeinsamen Typen. Übernommen werden **Ideen, Feldnamen und Reihenfolgen** — dokumentiert in einem Reuse-Protokoll (`omnia-atelier/docs/REUSE.md`), damit die Herkunft nachvollziehbar bleibt (MPL-/MIT-Kontext sauber getrennt).
 
 ### 12.6 Phase 6 — Erster End-to-End-Vertikalschnitt
 
@@ -1633,7 +1635,7 @@ Erst nach funktionierendem Kernfluss. Reihenfolge:
 | Memory bleibt transparent | Register zeigt jeden Eintrag mit Herkunft; Löschung ist hart und auditiert; Test: nach "Alles vergessen" ist die Tabelle leer |
 | Repository-Content wird nicht beschädigt | **Vorher/Nachher-Hash-Vergleich des gesamten Materialbaums**; `git status` in `schaltwerk` bleibt leer; die 34 Tests bleiben grün |
 | Bestehende Funktionalität bleibt intakt | `pytest schaltwerk/tests/` vor und nach jeder Phase |
-| LibreChat wurde nur sinnvoll übernommen | `docs/REUSE.md` führt jede Übernahme mit Quelle, Lizenz und Grund |
+| LibreChat wurde nur sinnvoll übernommen | `omnia-atelier/docs/REUSE.md` führt jede Übernahme mit Quelle, Lizenz und Grund |
 
 ---
 
@@ -1778,7 +1780,7 @@ Konkret (alle Schritte read-only, gegen die lokale OmniRoute-Instanz):
 1. Erreichbarkeit und Version feststellen (Basis-URL und Port der laufenden Instanz klären — **BEKANNT:** Container `omniroute`, Host-Port `24615`, Container `20128`).
 2. Kandidaten-Endpunkte **lesend** abfragen und Antwortformate protokollieren (Pfad, Status, Format).
 3. Bei Erfolg: einen **minimalen** Inferenzaufruf mit einem kurzen Material-Auszug aus `DOKUMENTATION.md` durchführen und die Antwort **inklusive Streaming-Verhalten** dokumentieren.
-4. Ergebnis in `docs/OMNIROUTE-PROBE.md` festhalten — mit Datum, Basis-URL und exakten Rohantworten (maskiert).
+4. Ergebnis in `omnia-atelier/docs/OMNIROUTE-PROBE.md` festhalten — mit Datum, Basis-URL und exakten Rohantworten (maskiert).
 
 **Warum genau dieser Schritt zuerst:** Er ist billig, gefahrlos, und er entscheidet über die Reihenfolge von Phase 4 bis 6. Fällt er positiv aus, geht es direkt an den Vertikalschnitt. Fällt er negativ aus, bleibt das Produktmodell intakt — wir starten dann mit `MockAdapter` und einem Direkt-Provider-Adapter und wissen es **jetzt**, nicht nach vier Phasen.
 
