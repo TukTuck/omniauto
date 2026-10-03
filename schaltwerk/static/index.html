@@ -5,248 +5,260 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Schaltwerk — OmniRoute Proxy-Austausch</title>
   <style>
-    /* Schaltwerk / BWO — „Bad Wolf in der Sternennacht".
-       Tiefes Nachtblau (van Gogh, gemeinfrei), Bernstein nur für Augen/Sterne,
-       Statusfarben weiterhin nur semantisch. Bad-Wolf-Motiv schematisch. */
+    /* Schaltwerk — Neubau 2026-10-03 (Issue #3).
+       Ruhiges Dunkelthema, klare Karten, Bernstein nur als Markenakzent
+       für Bad Wolf. Statusfarben ausschließlich semantisch. */
     :root {
-      --bg: #0d0e12;
-      --panel: #13141a;
-      --panel-2: #191a21;
-      --line: #262833;
-      --line-2: #33353f;
-      --ink: #d6d7dd;
-      --muted: #8a8c99;
-      --faint: #565963;
-      --eye: #d9a441;
-      --eye-dim: #8a6a34;
-      --good: #5f9e6f;
-      --bad: #c25b4e;
-      --warn: #b89543;
+      --bg: #0f1115;
+      --panel: #161920;
+      --panel-2: #1c2028;
+      --line: #262b36;
+      --line-2: #343b49;
+      --ink: #e2e4ea;
+      --muted: #9298a6;
+      --faint: #5d6373;
+      --accent: #d9a441;
+      --accent-dim: #8a6a34;
+      --good: #63b374;
+      --bad: #e0655a;
+      --warn: #d9b04c;
+      --radius: 8px;
       --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
       --sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 13px; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 13.5px; }
 
-    /* ── Layout: Sidebar + Content ─────────────────────────────── */
+    /* ── Grundlayout: Sidebar + Content ───────────────────────── */
     body { display: flex; min-height: 100vh; }
     .side {
-      width: 190px; flex: 0 0 190px; border-right: 1px solid var(--line);
-      display: flex; flex-direction: column; padding: 12px 0; gap: 1px;
+      width: 232px; flex: 0 0 232px; display: flex; flex-direction: column;
+      background: var(--panel); border-right: 1px solid var(--line);
+      padding: 16px 0 10px; gap: 2px;
     }
-    .logo { padding: 2px 14px 14px; }
-    .logo b { display: block; font-size: 13px; font-weight: 650; letter-spacing: .02em; }
-    .logo span { display: block; font-size: 10.5px; color: var(--muted); margin-top: 1px; }
-    .nav-label { font-family: var(--mono); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); padding: 12px 14px 3px; }
+    .logo { padding: 2px 18px 16px; }
+    .logo b { display: block; font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+    .logo span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .nav-label {
+      font-family: var(--mono); font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--faint); padding: 14px 18px 5px;
+    }
     .side button {
       display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
-      background: none; border: 0; border-left: 2px solid transparent; color: var(--muted); font: inherit; text-align: left;
-      padding: 5px 12px 5px 12px; cursor: pointer;
+      background: none; border: 0; color: var(--muted); font: inherit; text-align: left;
+      padding: 7px 18px; cursor: pointer; border-left: 2px solid transparent;
     }
-    .side button:hover:not(:disabled) { color: var(--ink); }
-    .side button.active { color: var(--ink); border-left-color: var(--ink); }
+    .side button:hover:not(:disabled) { color: var(--ink); background: var(--panel-2); }
+    .side button.active { color: var(--ink); background: var(--panel-2); border-left-color: var(--accent); }
     .side button:disabled { color: var(--faint); cursor: default; }
     .side .tag {
-      font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
-      color: var(--faint);
+      font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint);
     }
     .side .tag.live { color: var(--good); }
-    .side-foot { margin-top: auto; padding: 8px 14px 0; font-family: var(--mono); font-size: 9.5px; color: var(--faint); line-height: 1.6; }
-
-    /* ── Bad Wolf (Markenanker + Hub-KI-Ablage) ────────────────── */
-    .side {
-      background-image:
-        radial-gradient(1.6px 1.6px at 24% 72px, #d9a44138 0 50%, transparent 60%),
-        radial-gradient(1px 1px at 68% 150px, #d6d7dd26 0 50%, transparent 60%),
-        radial-gradient(1.4px 1.4px at 82% 260px, #d9a44124 0 50%, transparent 60%),
-        radial-gradient(1px 1px at 40% 340px, #d6d7dd1f 0 50%, transparent 60%);
+    .side-foot {
+      margin-top: auto; padding: 10px 18px 0; font-family: var(--mono); font-size: 9.5px;
+      color: var(--faint); line-height: 1.6; border-top: 1px solid var(--line);
     }
+
+    /* ── Bad Wolf (Markenanker + Ablage) ──────────────────────── */
     .portrait {
-      margin: 4px 4px 0; display: block; position: relative; cursor: pointer;
-      border: 1px solid transparent; border-radius: 3px;
+      margin: 6px 12px 0; display: block; position: relative; cursor: pointer;
+      border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+      background: radial-gradient(circle at 50% 42%, #171a22 0%, #101219 70%);
     }
     .portrait:hover { border-color: var(--line-2); }
-    .portrait.dropzone { border-color: var(--eye); box-shadow: 0 0 18px #d9a44130 inset; }
+    .portrait.dropzone { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 22px #d9a4412b inset; }
     .portrait svg, .portrait canvas { display: block; width: 100%; height: auto; }
-    .portrait .eye-core { filter: drop-shadow(0 0 4px #d9a441e6); }
-    .portrait .tear { filter: drop-shadow(0 0 2px #d9a44190); }
     .portrait .badge {
-      position: absolute; top: 8px; right: 8px; min-width: 16px; height: 16px; padding: 0 4px;
-      border-radius: 8px; background: var(--eye); color: #14100a;
-      font-family: var(--mono); font-size: 9.5px; font-weight: 700; line-height: 16px; text-align: center;
+      position: absolute; top: 8px; right: 8px; min-width: 17px; height: 17px; padding: 0 5px;
+      border-radius: 9px; background: var(--accent); color: #14100a;
+      font-family: var(--mono); font-size: 10px; font-weight: 700; line-height: 17px; text-align: center;
     }
-    .portrait .cap {
-      position: absolute; left: 10px; bottom: 8px; font-size: 10.5px; color: var(--muted);
-    }
+    .portrait .cap { position: absolute; left: 10px; bottom: 8px; font-size: 10.5px; color: var(--muted); }
     .portrait .cap b { display: block; color: var(--ink); font-size: 12px; font-weight: 650; }
     .voice {
-      margin: 2px 6px 0; padding: 7px 9px; border-top: 1px solid var(--line);
+      margin: 8px 12px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius);
       font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.5;
-      display: flex; gap: 7px; align-items: flex-start; min-height: 30px;
+      display: flex; gap: 7px; align-items: flex-start; min-height: 34px; cursor: pointer;
     }
     .voice .live-dot { margin-top: 3px; }
-    .bw-list { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.7; }
-    .bw-list .t { color: var(--faint); margin-right: 8px; }
-    .stencil {
-      padding: 2px 14px 10px; font-family: var(--mono); font-size: 9px; letter-spacing: .5em;
-      color: #56596380; text-transform: uppercase; white-space: nowrap; overflow: hidden;
-    }
+
+    /* ── Ablage (Tray) ────────────────────────────────────────── */
     .tray {
-      position: fixed; top: 0; right: 0; bottom: 0; width: 340px; z-index: 100;
+      position: fixed; top: 0; right: 0; bottom: 0; width: 360px; z-index: 100;
       background: var(--panel); border-left: 1px solid var(--line-2);
-      display: flex; flex-direction: column; box-shadow: -12px 0 32px #00000066;
+      display: flex; flex-direction: column; box-shadow: -16px 0 40px #00000073;
     }
     .tray[hidden] { display: none; }
-    .tray-head { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-    .tray-head b { flex: 1; font-size: 12.5px; }
-    .tray-body { flex: 1; overflow: auto; padding: 8px; }
-    .tray-item { border: 1px solid var(--line); border-radius: 3px; padding: 7px 9px; margin-bottom: 7px; }
+    .tray-head { display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .tray-head b { flex: 1; font-size: 13px; }
+    .tray-body { flex: 1; overflow: auto; padding: 10px; }
+    .tray-item { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 8px; background: var(--panel-2); }
     .ti-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
     .ti-time { font-family: var(--mono); font-size: 9.5px; color: var(--faint); flex: 1; }
-    .ti-x { background: none; border: 0; color: var(--faint); cursor: pointer; font-size: 13px; padding: 0 3px; }
+    .ti-x { background: none; border: 0; color: var(--faint); cursor: pointer; font-size: 14px; padding: 0 3px; }
     .ti-x:hover { color: var(--bad); }
     .ti-text { font-family: var(--mono); font-size: 11px; color: var(--ink); word-break: break-all; white-space: pre-wrap; line-height: 1.45; }
-    .tray-hint { padding: 9px 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--faint); line-height: 1.5; }
-    .tray.dropzone { border-left-color: var(--eye); box-shadow: -12px 0 32px #00000066, 0 0 24px #d9a44126 inset; }
+    .tray-hint { padding: 10px 14px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+    .tray.dropzone { border-left-color: var(--accent); box-shadow: -16px 0 40px #00000073, 0 0 24px #d9a44126 inset; }
 
+    /* ── Kopfzeile ────────────────────────────────────────────── */
     .wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     header.top {
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      padding: 10px 18px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between; gap: 18px;
+      padding: 12px 22px; border-bottom: 1px solid var(--line); background: var(--panel);
+      position: sticky; top: 0; z-index: 10; flex-wrap: wrap;
     }
-    h1 { font-size: 13px; font-weight: 650; margin: 0; }
-    .top-sub { color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+    h1 { font-size: 15px; font-weight: 700; margin: 0; }
+    .top-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
-    .conn { display: flex; gap: 8px; align-items: center; }
-    .conn .field { display: flex; flex-direction: column; gap: 2px; }
-    .conn label { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
-    input {
-      background: var(--panel); border: 1px solid var(--line); color: var(--ink);
-      padding: 5px 8px; font-family: var(--mono); font-size: 12px; border-radius: 3px;
+    .conn { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .conn .field { display: flex; flex-direction: column; gap: 3px; }
+    .conn label {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
     }
-    input:focus { outline: none; border-color: var(--faint); }
+    input {
+      background: var(--bg); border: 1px solid var(--line-2); color: var(--ink);
+      padding: 6px 9px; font-family: var(--mono); font-size: 12px; border-radius: 6px;
+    }
+    input:focus { outline: none; border-color: var(--accent-dim); }
     input::placeholder { color: var(--faint); }
+    .key-row { display: flex; gap: 6px; align-items: center; }
 
     button.act {
       font: inherit; font-weight: 550; border: 1px solid var(--line-2); background: transparent;
-      color: var(--ink); padding: 5px 11px; cursor: pointer; border-radius: 3px; white-space: nowrap;
+      color: var(--ink); padding: 6px 12px; cursor: pointer; border-radius: 6px; white-space: nowrap;
     }
     button.act:hover:not(:disabled) { border-color: var(--muted); background: var(--panel-2); }
-    button.act.primary { background: var(--ink); border-color: var(--ink); color: #111213; font-weight: 650; }
-    button.act.primary:hover:not(:disabled) { background: #fff; }
+    button.act.primary { background: var(--accent); border-color: var(--accent); color: #17120a; font-weight: 650; }
+    button.act.primary:hover:not(:disabled) { background: #e5b458; }
     button.act.small { padding: 3px 8px; font-size: 12px; }
+    button.act.ghost { border-color: transparent; color: var(--faint); }
+    button.act.ghost:hover:not(:disabled) { color: var(--bad); border-color: var(--line-2); background: transparent; }
     button.act:disabled { opacity: .4; cursor: not-allowed; }
 
-    main { padding: 12px 18px 26px; max-width: 1460px; width: 100%; }
+    main { padding: 16px 22px 30px; max-width: 1460px; width: 100%; }
     section[hidden] { display: none; }
 
-    /* ── Statuszeile (statt KPI-Kärtchen) ──────────────────────── */
-    .strip {
-      display: flex; gap: 0; flex-wrap: wrap; margin-bottom: 12px;
-      border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
-      padding: 7px 0;
-    }
+    /* ── Kennzahlen-Leiste ────────────────────────────────────── */
+    .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
     .strip .item {
-      display: flex; gap: 7px; align-items: baseline; padding: 0 16px;
-      border-left: 1px solid var(--line);
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 9px 12px; display: flex; flex-direction: column; gap: 3px;
     }
-    .strip .item:first-child { border-left: 0; padding-left: 2px; }
-    .strip span { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
-    .strip b { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+    .strip span { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+    .strip b { font-family: var(--mono); font-size: 14px; font-weight: 600; }
     .strip b.good { color: var(--good); } .strip b.bad { color: var(--bad); }
 
-    /* ── Toolbar / Zeilen ──────────────────────────────────────── */
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-    .chip-group {
-      display: flex; gap: 0; align-items: center;
+    /* ── Werkzeugzeilen / Chips ───────────────────────────────── */
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .chip-group { display: flex; gap: 0; align-items: center; }
+    .chip-group .cap {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--faint); padding-right: 10px;
     }
-    .chip-group .cap { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); padding-right: 10px; }
-    .chip { display: flex; gap: 5px; align-items: center; padding: 3px 8px; cursor: pointer; font-size: 12px; color: var(--muted); }
+    .chip { display: flex; gap: 5px; align-items: center; padding: 3px 8px; cursor: pointer; font-size: 12.5px; color: var(--muted); }
     .chip:hover { color: var(--ink); }
-    .chip input { width: auto; accent-color: var(--ink); margin: 0; }
+    .chip input { width: auto; accent-color: var(--accent); margin: 0; }
     .chip:has(input:checked) { color: var(--ink); }
 
     details.pop { position: relative; }
     details.pop > summary {
       list-style: none; cursor: pointer; border: 1px solid var(--line-2);
-      padding: 5px 11px; border-radius: 3px; color: var(--ink); font-weight: 550; font-size: 13px;
+      padding: 6px 12px; border-radius: 6px; color: var(--ink); font-weight: 550; font-size: 13px;
+      background: var(--panel);
     }
     details.pop > summary::-webkit-details-marker { display: none; }
     details.pop[open] > summary { border-color: var(--muted); }
     details.pop .menu {
-      position: absolute; z-index: 20; top: calc(100% + 5px); left: 0; min-width: 260px;
-      background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 3px; padding: 6px;
-      max-height: 320px; overflow: auto; box-shadow: 0 6px 20px #00000077;
+      position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 270px;
+      background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 8px;
+      max-height: 320px; overflow: auto; box-shadow: 0 10px 28px #00000080;
     }
-    details.pop .menu label { display: flex; gap: 8px; align-items: center; padding: 3px 6px; cursor: pointer; font-size: 12px; }
+    details.pop .menu label { display: flex; gap: 8px; align-items: center; padding: 4px 6px; cursor: pointer; font-size: 12.5px; }
     details.pop .menu label:hover { color: var(--ink); }
-    details.pop .menu input { width: auto; accent-color: var(--ink); margin: 0; }
+    details.pop .menu input { width: auto; accent-color: var(--accent); margin: 0; }
     details.pop .menu .all { color: var(--ink); font-size: 11px; cursor: pointer; padding: 2px 6px; display: inline-block; text-decoration: underline; }
-    details.pop .menu input[type=number] { width: 72px; margin-left: auto; }
+    details.pop .menu input[type=number] { width: 76px; margin-left: auto; }
 
     .hint { color: var(--muted); font-size: 12px; }
     .phase { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; min-width: 0; }
-    .phase .spinner { width: 9px; height: 9px; border: 1.5px solid var(--line-2); border-top-color: var(--ink); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
+    .phase .spinner {
+      width: 10px; height: 10px; border: 1.5px solid var(--line-2); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .8s linear infinite; display: none;
+    }
     .phase.busy .spinner { display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Panels / Tabellen ─────────────────────────────────────── */
+    /* ── Karten / Panels / Tabellen ───────────────────────────── */
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .panel { background: transparent; border: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 12px 14px 14px; margin-bottom: 14px;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 13px; font-weight: 650; }
+    .card .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; line-height: 1.55; }
+    .panel {
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+    }
     .panel h2 {
-      margin: 0; padding: 7px 10px; font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--line);
-      display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--ink);
+      margin: 0; padding: 9px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
     }
     .panel h2 em { font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--faint); font-weight: 400; }
     .scroll { overflow: auto; max-height: 380px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th {
-      text-align: left; color: var(--faint); font-weight: 550; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
-      padding: 5px 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 1;
+      text-align: left; color: var(--faint); font-weight: 600; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+      padding: 6px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 1;
     }
-    td { padding: 4px 10px; border-bottom: 1px solid #1d1f21; vertical-align: top; font-family: var(--mono); font-size: 11.5px; white-space: nowrap; }
+    td {
+      padding: 5px 12px; border-bottom: 1px solid #1c2027; vertical-align: top;
+      font-family: var(--mono); font-size: 11.5px; white-space: nowrap;
+    }
     td.wrap { white-space: normal; word-break: break-all; }
-    tr:hover td { background: #191b1d; }
-    .empty { color: var(--faint); font-family: var(--sans); font-size: 12px; padding: 16px 10px; text-align: center; }
-    input[type=checkbox].rowchk { width: auto; accent-color: var(--ink); margin: 0; }
+    tr:hover td { background: var(--panel-2); }
+    .empty { color: var(--faint); font-family: var(--sans); font-size: 12.5px; padding: 18px 12px; text-align: center; }
+    input[type=checkbox].rowchk { width: auto; accent-color: var(--accent); margin: 0; }
 
     .pill {
-      display: inline-block; padding: 0 5px; border-radius: 2px; font-size: 9.5px; font-weight: 600;
+      display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 600;
       letter-spacing: .05em; text-transform: uppercase; font-family: var(--sans);
       color: var(--muted); border: 1px solid var(--line-2);
     }
-    .pill.live { color: var(--good); border-color: #3a5a44; }
-    .pill.dead { color: var(--bad); border-color: #5e3a34; }
-    .pill.http { color: var(--warn); border-color: #5a4c2e; }
+    .pill.live { color: var(--good); border-color: #2f5b3b; }
+    .pill.dead { color: var(--bad); border-color: #6b3a34; }
+    .pill.http { color: var(--warn); border-color: #63552e; }
     .pill.one { color: var(--muted); border-color: var(--line-2); }
     .pill.man { color: var(--ink); border-color: var(--line-2); }
-    .pill.ok { color: var(--good); border-color: #3a5a44; }
-    .pill.err { color: var(--bad); border-color: #5e3a34; }
+    .pill.ok { color: var(--good); border-color: #2f5b3b; }
+    .pill.err { color: var(--bad); border-color: #6b3a34; }
 
-    /* ── Log ───────────────────────────────────────────────────── */
+    /* ── Log ──────────────────────────────────────────────────── */
     .log {
-      font-family: var(--mono); font-size: 11.5px; background: var(--bg); border: 1px solid var(--line);
-      padding: 8px 10px; height: 140px; overflow: auto; white-space: pre-wrap;
-      color: #a5a8ad; margin-top: 12px; line-height: 1.55;
+      font-family: var(--mono); font-size: 11.5px; background: #0b0d11; border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 10px 12px; height: 150px; overflow: auto; white-space: pre-wrap;
+      color: #a8adb8; margin-top: 14px; line-height: 1.55;
     }
     .log .t { color: var(--faint); }
     .log .err { color: var(--bad); }
 
-    /* ── Traffic / Zeitplan ────────────────────────────────────── */
-    .card { border-top: 1px solid var(--line); padding: 10px 2px 14px; margin-bottom: 4px; }
-    .card h3 { margin: 0 0 6px; font-size: 12px; font-weight: 650; }
-    .card .sub { color: var(--muted); font-size: 12px; margin: 0 0 10px; line-height: 1.5; }
-    .form-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
-    .form-row .field { display: flex; flex-direction: column; gap: 3px; }
+    /* ── Formulare / Zeitplan ─────────────────────────────────── */
+    .form-row { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; }
+    .form-row .field { display: flex; flex-direction: column; gap: 4px; }
     .form-row label { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
-    .switch { position: relative; width: 30px; height: 17px; flex: 0 0 30px; }
+    .switch { position: relative; width: 32px; height: 18px; flex: 0 0 32px; }
     .switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-    .switch i { position: absolute; inset: 0; background: var(--line-2); border-radius: 9px; transition: background .15s; pointer-events: none; }
-    .switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #9a9da2; transition: transform .15s; }
+    .switch i { position: absolute; inset: 0; background: var(--line-2); border-radius: 10px; transition: background .15s; pointer-events: none; }
+    .switch i::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+      background: #9aa0ac; transition: transform .15s;
+    }
     .switch input:checked + i { background: var(--good); }
-    .switch input:checked + i::after { transform: translateX(13px); background: #10120f; }
+    .switch input:checked + i::after { transform: translateX(14px); background: #10120f; }
 
-    .live-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--faint); margin-right: 6px; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--faint); margin-right: 6px; }
     .live-dot.on { background: var(--good); }
     .live-dot.off { background: var(--bad); }
     .live-dot.busy { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
@@ -255,22 +267,22 @@
     /* Drag & Drop: Kandidaten → Bestand */
     #har-body tr[draggable] td:first-child { cursor: grab; }
     #har-body tr[draggable]:active td { cursor: grabbing; }
-    #inv-panel.dropzone { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
-    #inv-panel.dropzone .drop-hint { display: block; color: var(--ink); border-color: var(--ink); }
+    #inv-panel.dropzone { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    #inv-panel.dropzone .drop-hint { display: block; color: var(--ink); border-color: var(--accent); }
     .drop-hint {
-      display: none; margin: 8px; padding: 9px; text-align: center; font-size: 12px; font-weight: 600;
-      border: 1px dashed var(--line-2); border-radius: 3px; color: var(--faint);
+      display: none; margin: 10px; padding: 10px; text-align: center; font-size: 12px; font-weight: 600;
+      border: 1px dashed var(--line-2); border-radius: var(--radius); color: var(--faint);
     }
-    .drop-hint.static { display: block; border: 0; padding: 5px 12px 8px; font-weight: 400; color: var(--faint); }
+    .drop-hint.static { display: block; border: 0; padding: 6px 12px 10px; font-weight: 400; color: var(--faint); }
 
     @media (max-width: 1100px) {
       .grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 860px) {
       body { flex-direction: column; }
-      .side { width: 100%; flex: none; flex-direction: row; align-items: center; overflow-x: auto; padding: 6px 10px; }
-      .logo { padding: 0 10px 0 0; } .logo span { display: none; }
-      .nav-label, .side-foot { display: none; }
+      .side { width: 100%; flex: none; flex-direction: row; align-items: center; overflow-x: auto; padding: 8px 12px; }
+      .logo { padding: 0 12px 0 0; } .logo span { display: none; }
+      .nav-label, .side-foot, .portrait, .voice { display: none; }
       .side button { width: auto; white-space: nowrap; border-left: 0; }
       header.top { flex-direction: column; align-items: stretch; }
     }
@@ -295,11 +307,10 @@
       <span class="badge" id="wolf-badge" hidden>0</span>
       <span class="cap"><b>Bad Wolf</b>Ablage der Hub-KI</span>
     </div>
-    <div class="voice" id="bw-voice" title="Bad Wolfs letzte Tat — Klick fuer die Ablage">
+    <div class="voice" id="bw-voice" title="Bad Wolfs letzte Tat — Klick für die Ablage">
       <span class="live-dot" id="bw-dot"></span>
       <span id="bw-voice-text">Ich beobachte.</span>
     </div>
-    <div class="stencil">B A D&#8195;W O L F</div>
     <div class="side-foot">schreibt ausschließlich manuelle Proxies nach OmniRoute</div>
   </aside>
 
@@ -313,13 +324,16 @@
         <span class="live-dot off" id="conn-dot" title="Nicht verbunden"></span>
         <div class="field">
           <label for="omni_url">OmniRoute URL</label>
-          <input id="omni_url" value="http://127.0.0.1:24615" size="24" autocomplete="off" />
+          <input id="omni_url" placeholder="http://127.0.0.1:20128" size="24" autocomplete="off" />
         </div>
         <div class="field">
           <label for="api_key">Management-API-Key</label>
-          <input id="api_key" type="password" placeholder="sk-…" size="20" autocomplete="off" />
+          <div class="key-row">
+            <input id="api_key" type="password" placeholder="sk-…" size="18" autocomplete="off" />
+            <button class="act small ghost" type="button" id="btn-clearkey" title="Gespeicherten Key löschen">Key löschen</button>
+          </div>
         </div>
-        <button class="act" type="submit" id="btn-connect">Verbinden</button>
+        <button class="act primary" type="submit" id="btn-connect">Verbinden</button>
       </form>
     </header>
 
@@ -474,7 +488,7 @@
             Letzte Proxy-Requests
             <em id="traffic-meta">—</em>
           </h2>
-          <div class="row" style="padding:8px 10px; margin:0; border-bottom:1px solid var(--line)">
+          <div class="row" style="padding:9px 12px; margin:0; border-bottom:1px solid var(--line)">
             <input id="traffic-filter" placeholder="Filter: Host / Provider …" size="24" />
             <label class="chip"><input type="checkbox" id="traffic-onlyproxy" /> nur echter Proxy-Traffic</label>
           </div>
@@ -592,6 +606,10 @@
       state.connected = ok;
       $("conn-dot").className = "live-dot " + (ok ? "on" : "off");
       $("kpi-link").textContent = ok ? "ok" : "—";
+    }
+    function updateKeyMask(hasKey) {
+      // Issue #1: gespeicherten Key nie im Klartext zeigen — nur Maske.
+      $("api_key").placeholder = hasKey ? "***** (gespeichert)" : "sk-…";
     }
     function selectedTypes() {
       const t = [];
@@ -736,6 +754,7 @@
       try {
         const data = await post("/api/connect", { omni_url: $("omni_url").value, api_key: $("api_key").value });
         setConn(data.ok);
+        updateKeyMask(Boolean(data.has_key));
         log(data.detail || "Verbunden.");
         if (data.ok) {
           setPhase("Verbunden.");
@@ -750,6 +769,24 @@
         setPhase("Verbindung fehlgeschlagen.");
       } finally { busy(btn, false); }
     }
+    async function loadSettings() {
+      // Issue #1: gespeicherte URL/Key-Anwesenheit beim Start übernehmen
+      // (früher stand hier eine falsche Hardcode-URL im Eingabefeld).
+      const meta = await api("/api/meta");
+      if (meta.settings?.omni_url) $("omni_url").value = meta.settings.omni_url;
+      updateKeyMask(Boolean(meta.settings?.has_key));
+    }
+    $("btn-clearkey").addEventListener("click", async () => {
+      if (!confirm("Gespeicherten Management-API-Key löschen?")) return;
+      try {
+        await post("/api/connect", { omni_url: $("omni_url").value, api_key: "", clear_key: true });
+        updateKeyMask(false);
+        setConn(false);
+        log("API-Key gelöscht.");
+      } catch (e) {
+        log("Key-Löschen fehlgeschlagen: " + e.message, true);
+      }
+    });
 
     /* ── Bestand ────────────────────────────────────────────── */
     function renderInv() {
@@ -1284,7 +1321,7 @@
     }
     setInterval(refreshVoice, 8000);
 
-/* ── Bad Wolf: Hologramm aus goldenen Partikeln ─────── */
+    /* ── Bad Wolf: Hologramm aus goldenen Partikeln ─────────── */
     const bw = { dust: [], streams: [], stars: [], t: 0, last: 0, ready: false };
     function bwBuildMask() {
       // Schematische Gesichts-Maske; Helligkeit steuert Partikel-Dichte/-Farbe.
@@ -1493,7 +1530,9 @@
     loadInv().catch(() => {}); // Bestand leise vorladen für die Übersicht
     syncJobStatus(); // Läuft auf dem Server noch ein Job (z. B. nach Reload)? Dann weiter beobachten.
     setInterval(syncJobStatus, 5000); // dauerhafter Poll — deckt auch Scheduler-Läufe ab
-    connect().catch(() => {}); // versucht Standard-URL; ohne Key meldet OmniRoute sich schon
+    loadSettings()
+      .catch(() => {}) // Feld bleibt leer, Server-Default greift
+      .then(() => connect().catch(() => {})); // Auto-Connect mit gespeicherter URL/Key
     pollHub().catch(() => {}); // erste Daten für die Übersicht
     refreshTray().catch(() => {}); // Bad-Wolf-Zähler starten
     refreshVoice().catch(() => {}); // ihre Stimme starten
