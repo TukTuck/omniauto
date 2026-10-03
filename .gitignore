@@ -1,0 +1,7 @@
+# Projekt-lokale Umgebungen und Caches
+schaltwerk/.venv/
+__pycache__/
+*.pyc
+
+# Laufzeitdaten — niemals committen (enthält ggf. den Management-Key)
+schaltwerk/settings.json

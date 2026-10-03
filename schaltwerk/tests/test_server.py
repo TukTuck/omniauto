@@ -5,6 +5,7 @@ Läuft ohne Netz und ohne OmniRoute: pytest tests/
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -97,9 +98,11 @@ class TestOmniHelpers:
 # ── API-Oberfläche (ohne OmniRoute) ──────────────────────────────────
 
 @pytest.fixture()
-def client(monkeypatch):
+def client(monkeypatch, tmp_path):
     server.settings["api_key"] = ""
     server.settings["omni_url"] = "http://127.0.0.1:20128"
+    # Persistenz nie in die echte Datei schreiben — Tests bleiben netz- und seiteneffektfrei.
+    monkeypatch.setattr(server, "SETTINGS_FILE", tmp_path / "settings.json")
     server.scheduler_state.update(enabled=False, next_run=None, last_error=None)
     server.job_state.update(running=False, error=None)
     server.tray.clear()
@@ -250,3 +253,43 @@ class TestTray:
     def test_proxy_logs_ohne_key(self, client):
         r = client.get("/api/omni/proxy-logs")
         assert r.status_code == 400
+
+
+# ── Persistenz (Issue #1) ────────────────────────────────────────────
+
+class TestPersistenz:
+    def test_connect_schreibt_settings_datei(self, client):
+        r = client.post("/api/connect", json={"omni_url": "http://127.0.0.1:9", "api_key": "geheim-123"})
+        assert r.status_code == 200
+        assert r.json()["has_key"] is True
+        raw = server.SETTINGS_FILE.read_text(encoding="utf-8")
+        assert "geheim-123" in raw
+        assert "127.0.0.1:9" in raw
+
+    def test_clear_key_leert_gespeicherten_key(self, client):
+        server.settings["api_key"] = "alter-key"
+        r = client.post("/api/connect", json={"omni_url": "http://127.0.0.1:9", "api_key": "", "clear_key": True})
+        assert r.status_code == 200
+        assert server.settings["api_key"] == ""
+        assert r.json()["has_key"] is False
+        assert server.SETTINGS_FILE.exists()
+
+    def test_leeres_feld_behaelt_key_weiterhin(self, client):
+        server.settings["api_key"] = "alter-key"
+        client.post("/api/connect", json={"omni_url": "http://127.0.0.1:9", "api_key": ""})
+        assert server.settings["api_key"] == "alter-key"
+
+    def test_load_settings_liesst_datei(self, client, tmp_path):
+        server.SETTINGS_FILE.write_text(
+            json.dumps({"omni_url": "http://10.0.0.1:5", "api_key": "k3y"}), encoding="utf-8"
+        )
+        server.load_settings()
+        assert server.settings["omni_url"] == "http://10.0.0.1:5"
+        assert server.settings["api_key"] == "k3y"
+        server.settings.update(api_key="", omni_url="http://127.0.0.1:20128")
+
+    def test_fehlende_datei_ist_kein_fehler(self, client):
+        # Fixture zeigt auf eine nicht existierende tmp-Datei — load_settings
+        # darf das still übergehen.
+        server.load_settings()  # darf nicht werfen
+        assert server.settings["omni_url"] == "http://127.0.0.1:20128"

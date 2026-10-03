@@ -48,9 +48,9 @@ if errorlevel 1 (
 )
 
 set HOST=127.0.0.1
-set PORT=8765
+set PORT=20128
 echo.
-echo  Starte Oberfläche auf http://127.0.0.1:8765
+echo  Starte Oberfläche auf http://127.0.0.1:20128
 echo  Fenster offen lassen. Beenden: Strg+C
 echo.
 %PY% "%~dp0server.py"
