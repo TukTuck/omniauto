@@ -236,6 +236,44 @@ settings: dict[str, Any] = {
     "api_key": "",
 }
 
+# Persistenz: Der Key (und die URL) müssen Neustarts überleben. Die Datei liegt
+# im Home-Verzeichnis, nicht im Repo — sie enthält den Key im Klartext, das UI
+# zeigt ihn deshalb nur maskiert (*****) an.
+SETTINGS_FILE = Path(
+    os.environ.get("SCHALTWERK_SETTINGS_FILE") or (Path.home() / ".schaltwerk" / "settings.json")
+)
+
+
+def load_settings() -> None:
+    try:
+        raw = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return
+    except Exception as exc:
+        print(f"[settings] {SETTINGS_FILE} nicht lesbar: {exc}", flush=True)
+        return
+    if isinstance(raw, dict):
+        if raw.get("omni_url"):
+            settings["omni_url"] = str(raw["omni_url"])
+        settings["api_key"] = str(raw.get("api_key") or "")
+
+
+def save_settings() -> None:
+    try:
+        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SETTINGS_FILE.write_text(
+            json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        try:
+            os.chmod(SETTINGS_FILE, 0o600)  # POSIX; Windows übernimmt Profil-Schutz
+        except OSError:
+            pass
+    except Exception as exc:
+        print(f"[settings] {SETTINGS_FILE} nicht schreibbar: {exc}", flush=True)
+
+
+load_settings()
+
 # Letzter/laufender Austausch-Job — für GET /api/job-status und Server-Logging.
 job_state: dict[str, Any] = {
     "running": False,
@@ -654,6 +692,7 @@ async def assign_proxy_to_providers(
 class ConnectBody(BaseModel):
     omni_url: str = Field(default="http://127.0.0.1:20128")
     api_key: str = ""
+    clear_key: bool = False  # explizit gesetzter Key wird gelöscht
 
 
 def clean_types(raw: list[str] | None) -> list[str]:
@@ -718,7 +757,13 @@ async def connect(body: ConnectBody) -> dict[str, Any]:
     had_key = bool((settings.get("api_key") or "").strip())
     settings["omni_url"] = omni_url
     new_key = body.api_key.strip()
-    settings["api_key"] = new_key or settings.get("api_key") or ""
+    if body.clear_key:
+        # Nur das explizite Löschen leert den Key — ein leeres Feld allein
+        # behält ihn (Page-Reload/Auto-Connect bleibt so harmlos).
+        settings["api_key"] = ""
+    else:
+        settings["api_key"] = new_key or settings.get("api_key") or ""
+    save_settings()
 
     reachable = False
     auth_ok = None
@@ -753,6 +798,7 @@ async def connect(body: ConnectBody) -> dict[str, Any]:
         "detail": detail,
         "version": version,
         "omni_url": settings["omni_url"],
+        "has_key": bool((settings.get("api_key") or "").strip()),
     }
 
 
@@ -1493,7 +1539,7 @@ async def hub_summary() -> dict[str, Any]:
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.environ.get("PORT", "8765"))
+    port = int(os.environ.get("PORT", "20128"))
     # Windows: nur localhost — weniger Firewall-Dialoge.
     # In der Vorschau/Linux: 0.0.0.0, überschreibbar per HOST=.
     default_host = "127.0.0.1" if sys.platform == "win32" else "0.0.0.0"
